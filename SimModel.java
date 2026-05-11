@@ -58,29 +58,44 @@ class Loc {
     public final int    cap;
     public final LType  type;
 
-    public int    cnt       = 0;
-    public int    processed = 0;
-    public double busyTime  = 0;
-    public double busyStart = 0;
+    public int    cnt          = 0;
+    public int    processed    = 0;   // total salidas
+    public int    totalEntries = 0;   // total entradas
+    public int    maxCnt       = 0;   // maximo simultaneo
+    public double busyTime     = 0;
+    public double busyStart    = 0;
 
-    /** Cola de lambdas pendientes de entrar a esta locación */
+    // Para promedio de contenido: sum(cnt * dt)
+    public double sumContentTime   = 0;
+    public double lastContentUpd   = 0;
+
+    /** Cola de lambdas pendientes de entrar a esta locacion */
     public final Deque<Runnable> waiting = new ArrayDeque<>();
 
     public int x, y, w, h;
 
     public Loc(String name, int cap, LType type, int x, int y, int w, int h) {
-        this.name = name; this.cap  = cap; this.type = type;
+        this.name = name; this.cap = cap; this.type = type;
         this.x = x; this.y = y; this.w = w; this.h = h;
     }
 
     public boolean full() { return cnt >= cap; }
 
+    private void updateAvg(double clk) {
+        sumContentTime += cnt * (clk - lastContentUpd);
+        lastContentUpd = clk;
+    }
+
     public void enter(double clk) {
+        updateAvg(clk);
         if (cnt == 0) busyStart = clk;
         cnt++;
+        totalEntries++;
+        if (cnt > maxCnt) maxCnt = cnt;
     }
 
     public void exit(double clk) {
+        updateAvg(clk);
         cnt--;
         processed++;
         if (cnt == 0) busyTime += clk - busyStart;
@@ -93,11 +108,23 @@ class Loc {
         }
     }
 
-    /** Utilización en tiempo real */
+    /** Utilizacion en tiempo real */
     public double utilLive(double clk, double total) {
         if (total <= 0) return 0;
         double busy = busyTime + (cnt > 0 ? clk - busyStart : 0);
         return Math.min(100.0, busy / total * 100.0);
+    }
+
+    /** Contenido promedio ponderado en tiempo */
+    public double avgContents(double totalTime) {
+        return totalTime > 0 ? sumContentTime / totalTime : 0;
+    }
+
+    /** Tiempo promedio por entrada (min) */
+    public double avgTimePerEntry(double clk) {
+        if (totalEntries == 0) return 0;
+        double bt = busyTime + (cnt > 0 ? clk - busyStart : 0);
+        return bt / totalEntries;
     }
 
     public int waitingCount() { return waiting.size(); }
@@ -108,24 +135,55 @@ class Loc {
 // ─────────────────────────────────────────────────────────────────────────────
 class Res {
     public final String name;
-    public boolean busy = false;
+    public boolean busy      = false;
+    public int    timesUsed  = 0;     // veces que fue asignado
+    public double workTime   = 0;     // tiempo total de trabajo (min)
+    public double travelTime = 0;     // tiempo total de viaje (min)
+    public double workStart  = 0;     // cuando empezo la tarea actual
     private final Deque<Runnable> queue = new ArrayDeque<>();
 
     public Res(String name) { this.name = name; }
 
-    public void reset() { busy = false; queue.clear(); }
-
-    /** Solicita el recurso. Si está libre, ejecuta acción. Si ocupado, encola. */
-    public void request(Runnable action) {
-        if (!busy) { busy = true; action.run(); }
-        else        { queue.offer(action); }
+    public void reset() {
+        busy = false; timesUsed = 0; workTime = 0;
+        travelTime = 0; workStart = 0; queue.clear();
     }
 
-    /** Libera el recurso. Si hay tareas pendientes, ejecuta la siguiente. */
-    public void release() {
+    /** Solicita el recurso con registro del tiempo de inicio. */
+    public void request(double clk, double travel, Runnable action) {
+        if (!busy) {
+            busy = true;
+            workStart = clk;
+            travelTime += travel;
+            timesUsed++;
+            action.run();
+        } else {
+            final double trvl = travel;
+            queue.offer(() -> {
+                workStart = clk;
+                travelTime += trvl;
+                timesUsed++;
+                action.run();
+            });
+        }
+    }
+
+    /** Libera el recurso y acumula tiempo de trabajo. */
+    public void release(double clk) {
+        workTime += clk - workStart;
         Runnable next = queue.poll();
         if (next != null) next.run();
         else              busy = false;
+    }
+
+    /** % Utilizacion sobre el tiempo total de simulacion */
+    public double utilPct(double totalTime) {
+        return totalTime > 0 ? Math.min(100.0, workTime / totalTime * 100.0) : 0;
+    }
+
+    /** Tiempo promedio de trabajo por uso (min) */
+    public double avgTimePerUse() {
+        return timesUsed > 0 ? workTime / timesUsed : 0;
     }
 }
 
@@ -165,11 +223,12 @@ class SimState {
 
     public volatile double clk = 0;
 
-    public final AtomicInteger barrasLlegadas = new AtomicInteger(0);
-    public final AtomicInteger piezasFinales  = new AtomicInteger(0);
-    public volatile int        enSistema      = 0;
+    public final AtomicInteger barrasLlegadas  = new AtomicInteger(0);
+    public final AtomicInteger piezasFinales   = new AtomicInteger(0);
+    public final AtomicInteger embarqueTotales = new AtomicInteger(0); // entidades que LLEGARON al Embarque
+    public volatile int        enSistema       = 0;
 
-    /** Historial [tiempo, throughput] para gráficas */
+    /** Historial [tiempo, throughput] para graficas */
     public final List<double[]> histThroughput =
         Collections.synchronizedList(new ArrayList<>());
 
@@ -180,11 +239,16 @@ class SimState {
 
     public final PriorityQueue<Ev> fel = new PriorityQueue<>();
 
+    // ── Agentes visuales de recursos (animacion de trabajadores) ──────────
+    /** [0]=homeX [1]=homeY [2]=curX [3]=curY [4]=tgtX [5]=tgtY [6]=moving(0/1) */
+    public final Map<String, float[]> resAgents = new LinkedHashMap<>();
+
     public SimState(SimParams p) {
         this.params = p;
         this.rng    = new Rng(p.semilla);
         initLocs();
         initRes();
+        initAgents();
     }
 
     private void initLocs() {
@@ -219,6 +283,47 @@ class SimState {
         res.put("MK", new Res("MONTACARGAS"));
     }
 
+    private void initAgents() {
+        // Posicion HOME de cada agente (debajo de su locacion principal)
+        // Formato: [homeX, homeY, curX, curY, tgtX, tgtY, moving]
+        // T1 patrulla CORTADORA<->TORNO
+        addAgent("T1", 305f, 140f);
+        // T2 patrulla FRESADORA<->ALMACEN_2
+        addAgent("T2", 625f, 140f);
+        // T3 patrulla EMPAQUE<->EMBARQUE
+        addAgent("T3", 725f, 325f);
+        // MK patrulla ALMACEN_2<->PINTURA
+        addAgent("MK", 780f, 140f);
+    }
+
+    private void addAgent(String key, float hx, float hy) {
+        // [0]=homeX [1]=homeY [2]=curX [3]=curY [4]=tgtX [5]=tgtY [6]=moving
+        resAgents.put(key, new float[]{hx, hy, hx, hy, hx, hy, 0f});
+    }
+
+    /** Mueve el agente desde un punto especifico hacia el destino (muestra ruta completa) */
+    public void agentGoFrom(String key, float fx, float fy, float tx, float ty) {
+        float[] a = resAgents.get(key);
+        if (a == null) return;
+        a[2] = fx; a[3] = fy;  // posicion actual = origen real
+        a[4] = tx; a[5] = ty;  // target = destino real
+        a[6] = 1f;             // moving
+    }
+
+    /** Mueve el agente hacia el destino cuando el recurso es asignado */
+    public void agentGoTo(String key, float tx, float ty) {
+        float[] a = resAgents.get(key);
+        if (a == null) return;
+        a[4] = tx; a[5] = ty; a[6] = 1f;
+    }
+
+    /** Regresa el agente a home cuando el recurso es liberado */
+    public void agentReturnHome(String key) {
+        float[] a = resAgents.get(key);
+        if (a == null) return;
+        a[4] = a[0]; a[5] = a[1]; a[6] = 0f;
+    }
+
     public Loc loc(String n) { return locs.get(n); }
     public Res res(String n) { return res.get(n);  }
 
@@ -231,6 +336,7 @@ class SimState {
         clk = 0;
         barrasLlegadas.set(0);
         piezasFinales.set(0);
+        embarqueTotales.set(0);
         enSistema  = 0;
         running    = false;
         paused     = false;
@@ -240,10 +346,17 @@ class SimState {
         Ev.reset();
         Entity.resetIds();
         locs.values().forEach(l -> {
-            l.cnt = 0; l.processed = 0;
+            l.cnt = 0; l.processed = 0; l.totalEntries = 0; l.maxCnt = 0;
             l.busyTime = 0; l.busyStart = 0;
+            l.sumContentTime = 0; l.lastContentUpd = 0;
             l.waiting.clear();
         });
         res.values().forEach(Res::reset);
+        // Resetear posiciones de agentes
+        resAgents.values().forEach(a -> {
+            a[2] = a[0]; a[3] = a[1]; // curX/Y = homeX/Y
+            a[4] = a[0]; a[5] = a[1]; // tgtX/Y = homeX/Y
+            a[6] = 0f;                 // no moving
+        });
     }
 }

@@ -13,7 +13,7 @@ public class ControlPanel extends JPanel {
     private JButton btnParams, btnCharts;
     private JSlider speedSlider;
     private JLabel  lblSpeed;
-    private JLabel  lblBarras, lblPiezas, lblEnSistema;
+    private JLabel  lblBarras, lblPiezas, lblEnSistema, lblEmbarque;
     private JLabel  lblClockBig;
 
     private static final double[] SPEEDS = {0.25, 0.5, 1.0, 2.0, 5.0, 10.0, 20.0, 50.0};
@@ -114,13 +114,14 @@ public class ControlPanel extends JPanel {
     }
 
     private JPanel makeCounters() {
-        JPanel p = new JPanel(new GridLayout(3, 1, 0, 5));
+        JPanel p = new JPanel(new GridLayout(4, 1, 0, 5));
         p.setOpaque(false);
         p.setBorder(BorderFactory.createEmptyBorder(0, 10, 0, 10));
         lblBarras    = counterLabel("Barras llegadas: 0");
         lblPiezas    = counterLabel("Piezas finales:  0");
         lblEnSistema = counterLabel("En sistema:      0");
-        p.add(lblBarras); p.add(lblPiezas); p.add(lblEnSistema);
+        lblEmbarque  = counterLabel("En Embarque:     0");
+        p.add(lblBarras); p.add(lblPiezas); p.add(lblEnSistema); p.add(lblEmbarque);
         return p;
     }
 
@@ -167,6 +168,7 @@ public class ControlPanel extends JPanel {
         lblBarras   .setText("Barras llegadas: " + frame.state.barrasLlegadas.get());
         lblPiezas   .setText("Piezas finales:  " + frame.state.piezasFinales.get());
         lblEnSistema.setText("En sistema:      " + frame.state.enSistema);
+        lblEmbarque .setText("En Embarque:     " + frame.state.embarqueTotales.get());
         double clk = frame.state.clk;
         lblClockBig.setText(String.format("%d:%02d", (int)(clk/60), (int)(clk%60)));
     }
