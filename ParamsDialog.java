@@ -122,7 +122,7 @@ public class ParamsDialog extends JDialog {
         addHeader(p,c,"LLEGADAS DE BARRAS");
         fArribo = row(p,c,"Frecuencia llegada (min):", sv(working.arriboFrecuencia));
         addHeader(p,c,"DURACION Y REPRODUCIBILIDAD");
-        fDur  = row(p,c,"Duracion simulacion (min):", sv(working.duracion));
+        fDur  = row(p,c,"Duracion simulacion (HORAS):", String.valueOf(working.duracion/60.0));
         fSeed = row(p,c,"Semilla aleatoria:",          sv(working.semilla));
         addHeader(p,c,"INSPECCION 1 - Probabilidad de rechazo");
         fRech = row(p,c,"Prob. envio a Insp. 2 (0-1):", sv(working.probRechazo));
@@ -158,7 +158,7 @@ public class ParamsDialog extends JDialog {
             working.t1Traslado   = dbl(fT1);    working.t2Traslado = dbl(fT2);
             working.t3Traslado   = dbl(fT3);    working.mkTraslado1= dbl(fMk1);   working.mkTraslado2= dbl(fMk2);
             working.arriboFrecuencia = dbl(fArribo);
-            working.duracion     = dbl(fDur);
+            working.duracion     = dbl(fDur) * 60.0;  // entrada en horas → convertir a minutos
             working.semilla      = Long.parseLong(fSeed.getText().trim());
             working.probRechazo  = dbl(fRech);
             if (working.probRechazo < 0 || working.probRechazo > 1)
@@ -186,7 +186,7 @@ public class ParamsDialog extends JDialog {
         fEmbM .setText(sv(d.embMedia));   fEmbC .setText(sv(d.embCap));
         fT1   .setText(sv(d.t1Traslado)); fT2   .setText(sv(d.t2Traslado));
         fT3   .setText(sv(d.t3Traslado)); fMk1  .setText(sv(d.mkTraslado1)); fMk2.setText(sv(d.mkTraslado2));
-        fArribo.setText(sv(d.arriboFrecuencia)); fDur.setText(sv(d.duracion));
+        fArribo.setText(sv(d.arriboFrecuencia)); fDur.setText(sv(d.duracion / 60.0));
         fSeed  .setText(sv(d.semilla));   fRech.setText(sv(d.probRechazo));
     }
 

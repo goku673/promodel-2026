@@ -4,21 +4,21 @@ import java.util.List;
 /**
  * SimWorker - SwingWorker que ejecuta el motor DES en un hilo de fondo.
  *
- * Publica snapshots del reloj de simulación al EDT (Event Dispatch Thread)
- * para que la GUI se actualice sin bloquearse.
- * El intervalo de pausa entre pasos controla la velocidad visual.
+ * CORRECCIÓN CRÍTICA: 'simUntil' avanza siempre de forma independiente.
+ * Antes: "until = state.clk + SIM_STEP" causaba un loop infinito cuando
+ * no había eventos en el rango (state.clk no avanzaba y until era siempre el mismo).
  */
 public class SimWorker extends SwingWorker<Void, Double> {
 
     private final SimState  state;
     private final SimEngine engine;
-    private final Runnable  onTick;     // llamado en EDT cada tick
-    private final Runnable  onFinished; // llamado en EDT al terminar
+    private final Runnable  onTick;
+    private final Runnable  onFinished;
 
-    /** Paso de simulación por iteración (minutos simulados) */
-    private static final double SIM_STEP = 0.5;
+    /** Minutos de simulacion que se procesan por cada frame visual */
+    private static final double SIM_STEP = 2.0;
 
-    /** Tiempo real base entre pasos a velocidad x1 (milisegundos) */
+    /** Millisegundos reales entre frames a velocidad x1 */
     private static final long BASE_SLEEP_MS = 50L;
 
     public SimWorker(SimState state, SimEngine engine,
@@ -31,27 +31,43 @@ public class SimWorker extends SwingWorker<Void, Double> {
 
     @Override
     protected Void doInBackground() throws Exception {
-        engine.init();
+        try {
+            engine.init();
 
-        while (state.running && !isCancelled()) {
-            // ── Pausa ─────────────────────────────────────────────────────
-            while (state.paused && state.running) {
-                Thread.sleep(100);
+            // CLAVE: simUntil avanza siempre, independiente de state.clk
+            // state.clk solo salta al tiempo del proximo evento procesado
+            double simUntil = 0.0;
+
+            while (state.running && !isCancelled()) {
+
+                // Esperar si está en pausa
+                while (state.paused && state.running) {
+                    Thread.sleep(80);
+                }
+                if (!state.running || isCancelled()) break;
+
+                // Avanzar la ventana de tiempo simulado
+                simUntil += SIM_STEP;
+
+                // Procesar todos los eventos hasta simUntil
+                boolean ok = engine.stepUntil(simUntil);
+
+                // Notificar al EDT para actualizar la GUI
+                publish(state.clk);
+
+                if (!ok) break;
+
+                // Dormir según velocidad elegida por el usuario
+                long sleepMs = (long)(BASE_SLEEP_MS / Math.max(0.05, state.speedMult));
+                if (sleepMs > 0) Thread.sleep(sleepMs);
             }
-            if (!state.running || isCancelled()) break;
 
-            // ── Avanzar reloj un paso ──────────────────────────────────
-            double until = state.clk + SIM_STEP;
-            boolean ok = engine.stepUntil(until);
-
-            // ── Publicar snapshot al EDT ───────────────────────────────
-            publish(state.clk);
-
-            if (!ok) break;
-
-            // ── Dormir según velocidad seleccionada ────────────────────
-            long sleepMs = (long)(BASE_SLEEP_MS / Math.max(0.1, state.speedMult));
-            if (sleepMs > 0) Thread.sleep(sleepMs);
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+        } catch (Exception ex) {
+            System.err.println("[SimWorker ERROR] " + ex.getClass().getSimpleName()
+                               + ": " + ex.getMessage());
+            ex.printStackTrace();
         }
 
         state.running  = false;
@@ -61,13 +77,13 @@ public class SimWorker extends SwingWorker<Void, Double> {
 
     @Override
     protected void process(List<Double> chunks) {
-        // Llamado en el EDT con los snapshots publicados
+        // Este metodo se ejecuta en el EDT (hilo de la GUI)
         if (onTick != null) onTick.run();
     }
 
     @Override
     protected void done() {
-        // Llamado en el EDT cuando el worker termina
+        // Llamado en el EDT cuando el worker termina o es cancelado
         if (onFinished != null) onFinished.run();
     }
 }

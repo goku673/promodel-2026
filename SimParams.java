@@ -77,8 +77,8 @@ public class SimParams implements Cloneable {
     public double probRechazo = 0.20;
 
     // ── General ───────────────────────────────────────────────────────────
-    /** Duración total de la simulación en minutos */
-    public double duracion = 480.0;
+    /** Duracion total de la simulacion en MINUTOS (por defecto 60 horas = 3600 min) */
+    public double duracion = 3600.0;
     /** Semilla del generador aleatorio para reproducibilidad */
     public long   semilla  = 42L;
 

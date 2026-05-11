@@ -58,29 +58,44 @@ class Loc {
     public final int    cap;
     public final LType  type;
 
-    public int    cnt       = 0;
-    public int    processed = 0;
-    public double busyTime  = 0;
-    public double busyStart = 0;
+    public int    cnt          = 0;
+    public int    processed    = 0;   // total salidas
+    public int    totalEntries = 0;   // total entradas
+    public int    maxCnt       = 0;   // maximo simultaneo
+    public double busyTime     = 0;
+    public double busyStart    = 0;
 
-    /** Cola de lambdas pendientes de entrar a esta locación */
+    // Para promedio de contenido: sum(cnt * dt)
+    public double sumContentTime   = 0;
+    public double lastContentUpd   = 0;
+
+    /** Cola de lambdas pendientes de entrar a esta locacion */
     public final Deque<Runnable> waiting = new ArrayDeque<>();
 
     public int x, y, w, h;
 
     public Loc(String name, int cap, LType type, int x, int y, int w, int h) {
-        this.name = name; this.cap  = cap; this.type = type;
+        this.name = name; this.cap = cap; this.type = type;
         this.x = x; this.y = y; this.w = w; this.h = h;
     }
 
     public boolean full() { return cnt >= cap; }
 
+    private void updateAvg(double clk) {
+        sumContentTime += cnt * (clk - lastContentUpd);
+        lastContentUpd = clk;
+    }
+
     public void enter(double clk) {
+        updateAvg(clk);
         if (cnt == 0) busyStart = clk;
         cnt++;
+        totalEntries++;
+        if (cnt > maxCnt) maxCnt = cnt;
     }
 
     public void exit(double clk) {
+        updateAvg(clk);
         cnt--;
         processed++;
         if (cnt == 0) busyTime += clk - busyStart;
@@ -93,11 +108,23 @@ class Loc {
         }
     }
 
-    /** Utilización en tiempo real */
+    /** Utilizacion en tiempo real */
     public double utilLive(double clk, double total) {
         if (total <= 0) return 0;
         double busy = busyTime + (cnt > 0 ? clk - busyStart : 0);
         return Math.min(100.0, busy / total * 100.0);
+    }
+
+    /** Contenido promedio ponderado en tiempo */
+    public double avgContents(double totalTime) {
+        return totalTime > 0 ? sumContentTime / totalTime : 0;
+    }
+
+    /** Tiempo promedio por entrada (min) */
+    public double avgTimePerEntry(double clk) {
+        if (totalEntries == 0) return 0;
+        double bt = busyTime + (cnt > 0 ? clk - busyStart : 0);
+        return bt / totalEntries;
     }
 
     public int waitingCount() { return waiting.size(); }
@@ -108,24 +135,55 @@ class Loc {
 // ─────────────────────────────────────────────────────────────────────────────
 class Res {
     public final String name;
-    public boolean busy = false;
+    public boolean busy      = false;
+    public int    timesUsed  = 0;     // veces que fue asignado
+    public double workTime   = 0;     // tiempo total de trabajo (min)
+    public double travelTime = 0;     // tiempo total de viaje (min)
+    public double workStart  = 0;     // cuando empezo la tarea actual
     private final Deque<Runnable> queue = new ArrayDeque<>();
 
     public Res(String name) { this.name = name; }
 
-    public void reset() { busy = false; queue.clear(); }
-
-    /** Solicita el recurso. Si está libre, ejecuta acción. Si ocupado, encola. */
-    public void request(Runnable action) {
-        if (!busy) { busy = true; action.run(); }
-        else        { queue.offer(action); }
+    public void reset() {
+        busy = false; timesUsed = 0; workTime = 0;
+        travelTime = 0; workStart = 0; queue.clear();
     }
 
-    /** Libera el recurso. Si hay tareas pendientes, ejecuta la siguiente. */
-    public void release() {
+    /** Solicita el recurso con registro del tiempo de inicio. */
+    public void request(double clk, double travel, Runnable action) {
+        if (!busy) {
+            busy = true;
+            workStart = clk;
+            travelTime += travel;
+            timesUsed++;
+            action.run();
+        } else {
+            final double trvl = travel;
+            queue.offer(() -> {
+                workStart = clk;
+                travelTime += trvl;
+                timesUsed++;
+                action.run();
+            });
+        }
+    }
+
+    /** Libera el recurso y acumula tiempo de trabajo. */
+    public void release(double clk) {
+        workTime += clk - workStart;
         Runnable next = queue.poll();
         if (next != null) next.run();
         else              busy = false;
+    }
+
+    /** % Utilizacion sobre el tiempo total de simulacion */
+    public double utilPct(double totalTime) {
+        return totalTime > 0 ? Math.min(100.0, workTime / totalTime * 100.0) : 0;
+    }
+
+    /** Tiempo promedio de trabajo por uso (min) */
+    public double avgTimePerUse() {
+        return timesUsed > 0 ? workTime / timesUsed : 0;
     }
 }
 
@@ -240,8 +298,9 @@ class SimState {
         Ev.reset();
         Entity.resetIds();
         locs.values().forEach(l -> {
-            l.cnt = 0; l.processed = 0;
+            l.cnt = 0; l.processed = 0; l.totalEntries = 0; l.maxCnt = 0;
             l.busyTime = 0; l.busyStart = 0;
+            l.sumContentTime = 0; l.lastContentUpd = 0;
             l.waiting.clear();
         });
         res.values().forEach(Res::reset);

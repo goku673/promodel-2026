@@ -85,7 +85,7 @@ public class MainFrame extends JFrame {
         lblStatus.setFont(SimConstants.FONT_LABEL);
         lblStatus.setForeground(SimConstants.C_MUTED);
 
-        lblClock = new JLabel("T = 0.00 min");
+        lblClock = new JLabel("HR:00  MIN:00");
         lblClock.setFont(SimConstants.FONT_MONO);
         lblClock.setForeground(SimConstants.C_ACCENT2);
 
@@ -230,9 +230,10 @@ public class MainFrame extends JFrame {
 
     private void onTick() {
         if (state == null) return;
-        // Actualizar reloj
-        lblClock.setText(String.format("T = %.1f min  (%.1f h)",
-                state.clk, state.clk / 60.0));
+        // Actualizar reloj en formato HR:MM estilo ProModel
+        int hr  = (int)(state.clk / 60);
+        int min = (int)(state.clk % 60);
+        lblClock.setText(String.format("HR:%02d  MIN:%02d", hr, min));
         // Repintar fábrica y tabla
         factoryPanel.repaint();
         statsPanel.refresh();
