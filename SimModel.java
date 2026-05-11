@@ -223,11 +223,12 @@ class SimState {
 
     public volatile double clk = 0;
 
-    public final AtomicInteger barrasLlegadas = new AtomicInteger(0);
-    public final AtomicInteger piezasFinales  = new AtomicInteger(0);
-    public volatile int        enSistema      = 0;
+    public final AtomicInteger barrasLlegadas  = new AtomicInteger(0);
+    public final AtomicInteger piezasFinales   = new AtomicInteger(0);
+    public final AtomicInteger embarqueTotales = new AtomicInteger(0); // entidades que LLEGARON al Embarque
+    public volatile int        enSistema       = 0;
 
-    /** Historial [tiempo, throughput] para gráficas */
+    /** Historial [tiempo, throughput] para graficas */
     public final List<double[]> histThroughput =
         Collections.synchronizedList(new ArrayList<>());
 
@@ -238,11 +239,16 @@ class SimState {
 
     public final PriorityQueue<Ev> fel = new PriorityQueue<>();
 
+    // ── Agentes visuales de recursos (animacion de trabajadores) ──────────
+    /** [0]=homeX [1]=homeY [2]=curX [3]=curY [4]=tgtX [5]=tgtY [6]=moving(0/1) */
+    public final Map<String, float[]> resAgents = new LinkedHashMap<>();
+
     public SimState(SimParams p) {
         this.params = p;
         this.rng    = new Rng(p.semilla);
         initLocs();
         initRes();
+        initAgents();
     }
 
     private void initLocs() {
@@ -277,6 +283,47 @@ class SimState {
         res.put("MK", new Res("MONTACARGAS"));
     }
 
+    private void initAgents() {
+        // Posicion HOME de cada agente (debajo de su locacion principal)
+        // Formato: [homeX, homeY, curX, curY, tgtX, tgtY, moving]
+        // T1 patrulla CORTADORA<->TORNO
+        addAgent("T1", 305f, 140f);
+        // T2 patrulla FRESADORA<->ALMACEN_2
+        addAgent("T2", 625f, 140f);
+        // T3 patrulla EMPAQUE<->EMBARQUE
+        addAgent("T3", 725f, 325f);
+        // MK patrulla ALMACEN_2<->PINTURA
+        addAgent("MK", 780f, 140f);
+    }
+
+    private void addAgent(String key, float hx, float hy) {
+        // [0]=homeX [1]=homeY [2]=curX [3]=curY [4]=tgtX [5]=tgtY [6]=moving
+        resAgents.put(key, new float[]{hx, hy, hx, hy, hx, hy, 0f});
+    }
+
+    /** Mueve el agente desde un punto especifico hacia el destino (muestra ruta completa) */
+    public void agentGoFrom(String key, float fx, float fy, float tx, float ty) {
+        float[] a = resAgents.get(key);
+        if (a == null) return;
+        a[2] = fx; a[3] = fy;  // posicion actual = origen real
+        a[4] = tx; a[5] = ty;  // target = destino real
+        a[6] = 1f;             // moving
+    }
+
+    /** Mueve el agente hacia el destino cuando el recurso es asignado */
+    public void agentGoTo(String key, float tx, float ty) {
+        float[] a = resAgents.get(key);
+        if (a == null) return;
+        a[4] = tx; a[5] = ty; a[6] = 1f;
+    }
+
+    /** Regresa el agente a home cuando el recurso es liberado */
+    public void agentReturnHome(String key) {
+        float[] a = resAgents.get(key);
+        if (a == null) return;
+        a[4] = a[0]; a[5] = a[1]; a[6] = 0f;
+    }
+
     public Loc loc(String n) { return locs.get(n); }
     public Res res(String n) { return res.get(n);  }
 
@@ -289,6 +336,7 @@ class SimState {
         clk = 0;
         barrasLlegadas.set(0);
         piezasFinales.set(0);
+        embarqueTotales.set(0);
         enSistema  = 0;
         running    = false;
         paused     = false;
@@ -304,5 +352,11 @@ class SimState {
             l.waiting.clear();
         });
         res.values().forEach(Res::reset);
+        // Resetear posiciones de agentes
+        resAgents.values().forEach(a -> {
+            a[2] = a[0]; a[3] = a[1]; // curX/Y = homeX/Y
+            a[4] = a[0]; a[5] = a[1]; // tgtX/Y = homeX/Y
+            a[6] = 0f;                 // no moving
+        });
     }
 }

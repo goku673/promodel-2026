@@ -70,10 +70,17 @@ public class FactoryPanel extends JPanel {
     public FactoryPanel() {
         setBackground(SimConstants.BG_DARK);
         setPreferredSize(new Dimension(1080, 490));
-        // Timer de animación ~30 fps
+        // Timer de animacion ~30 fps
         new javax.swing.Timer(33, e -> {
-            animPhase = (animPhase + 3) % 360;
-            updateParticles();
+            // Solo animar si la simulacion esta corriendo
+            if (state != null && state.running) {
+                animPhase = (animPhase + 3) % 360;
+                updateParticles();
+                updateAgents();    // mover icono de trabajadores
+            } else if (state != null && state.finished) {
+                // Despues de terminar, mantener el ultimo estado visible pero estatico
+                animPhase = (animPhase + 1) % 360; // animacion muy lenta
+            }
             repaint();
         }).start();
     }
@@ -82,6 +89,25 @@ public class FactoryPanel extends JPanel {
         this.state = s;
         particles.clear();
         repaint();
+    }
+
+    // ── Animar agentes (workers/montacargas) hacia su target ──────────────
+    private void updateAgents() {
+        if (state == null) return;
+        for (float[] a : state.resAgents.values()) {
+            // curX/Y (indices 2,3) se interpolan hacia tgtX/Y (indices 4,5)
+            float dx = a[4] - a[2];
+            float dy = a[5] - a[3];
+            float speed = 4.0f;   // pixeles por frame
+            float dist = (float) Math.sqrt(dx*dx + dy*dy);
+            if (dist > speed) {
+                a[2] += dx / dist * speed;
+                a[3] += dy / dist * speed;
+            } else {
+                a[2] = a[4];
+                a[3] = a[5];
+            }
+        }
     }
 
     // ── Actualiza partículas y genera nuevas ──────────────────────────────
@@ -165,9 +191,11 @@ public class FactoryPanel extends JPanel {
         // 1. Conexiones/flechas
         drawAllConnections(g2, st);
 
-        // 2. Partículas en tránsito
-        for (FlowParticle p : new ArrayList<>(particles)) {
-            drawParticle(g2, p);
+        // 2. Partículas en tránsito (solo si corriendo)
+        if (state != null && (state.running || state.finished)) {
+            for (FlowParticle p : new ArrayList<>(particles)) {
+                drawParticle(g2, p);
+            }
         }
 
         // 3. Locaciones
@@ -175,12 +203,17 @@ public class FactoryPanel extends JPanel {
             drawLocation(g2, loc);
         }
 
-        // 4. Leyendas
+        // 4. Agentes (trabajadores / montacargas)
+        if (state != null && (state.running || state.finished)) {
+            drawAllAgents(g2, state);
+        }
+
+        // 5. Leyendas
         drawResourceLegend(g2, W, H, st);
         drawEntityLegend(g2, W, H);
 
-        // 5. Mensaje inicial si no hay simulación
-        if (state == null) {
+        // 6. Mensaje inicial si no hay simulacion activa
+        if (state == null || (!state.running && !state.finished)) {
             g2.setFont(new Font("Arial", Font.BOLD, 14));
             g2.setColor(SimConstants.C_MUTED);
             String msg = "Configura parametros y presiona Iniciar para simular";
@@ -311,6 +344,11 @@ public class FactoryPanel extends JPanel {
         // Badge contador (arriba-derecha)
         drawCountBadge(g2, loc);
 
+        // CONTADOR ESPECIAL EN EMBARQUE: total acumulado (1,2,3,4...)
+        if (loc.name.equals("EMBARQUE") && state != null && (state.running || state.finished)) {
+            drawEmbarqueCounter(g2, loc);
+        }
+
         // BARRA DE CAPACIDAD (en todos los almacenes y empaque/embarque)
         if ((loc.type == LType.ALMACEN || loc.type == LType.EMPAQUE || loc.type == LType.EMBARQUE)
                 && loc.cap < Integer.MAX_VALUE) {
@@ -350,7 +388,9 @@ public class FactoryPanel extends JPanel {
     }
 
     private void drawGear(Graphics2D g2, int cx, int cy, int r, int teeth, boolean spin) {
-        double angle = spin ? (System.currentTimeMillis() / 80.0 % (Math.PI*2)) : 0;
+        // Solo girar si la simulacion esta corriendo
+        boolean doSpin = spin && state != null && state.running;
+        double angle = doSpin ? (System.currentTimeMillis() / 80.0 % (Math.PI*2)) : 0;
         Path2D gear = new Path2D.Double();
         int r2 = r-5, r3 = r+5;
         for (int i=0;i<teeth;i++) {
@@ -402,6 +442,46 @@ public class FactoryPanel extends JPanel {
     }
 
     /**
+     * Contador acumulado en EMBARQUE: muestra "Total: 1, 2, 3, 4..." directamente
+     * en el box del Embarque con animacion de pulso.
+     */
+    private void drawEmbarqueCounter(Graphics2D g2, Loc loc) {
+        int total = state.embarqueTotales.get();
+
+        // Panel de fondo dentro del box
+        int px = loc.x + 4, py = loc.y + 20, pw = loc.w - 8, ph = 28;
+        g2.setColor(new Color(0, 0, 0, 140));
+        g2.fillRoundRect(px, py, pw, ph, 6, 6);
+
+        // Etiqueta "TOTAL"
+        g2.setFont(new Font("Arial", Font.BOLD, 7));
+        g2.setColor(new Color(180, 210, 255, 200));
+        g2.drawString("TOTAL LLEGADOS", px + 4, py + 9);
+
+        // Numero grande con pulso si cambio recientemente
+        float pulse = (float)(0.9 + 0.1 * Math.abs(Math.sin(Math.toRadians(animPhase * 3))));
+        int fontSize = (int)(18 * pulse);
+        g2.setFont(new Font("Arial", Font.BOLD, fontSize));
+
+        // Color: verde si < 100, dorado si >= 100, naranja si >= 500
+        Color numColor = total < 100  ? new Color(50, 255, 100)
+                       : total < 500  ? new Color(255, 215, 50)
+                       :                new Color(255, 130, 50);
+        g2.setColor(numColor);
+
+        String numStr = String.valueOf(total);
+        FontMetrics fm = g2.getFontMetrics();
+        int nx = px + (pw - fm.stringWidth(numStr)) / 2;
+        int ny = py + ph - 4;
+        g2.drawString(numStr, nx, ny);
+
+        // Borde del panel
+        g2.setColor(numColor.darker());
+        g2.setStroke(new BasicStroke(1f));
+        g2.drawRoundRect(px, py, pw, ph, 6, 6);
+    }
+
+    /**
      * MEDIDOR DE CAPACIDAD Y ESCALA — barra vertical a la izquierda de la locación,
      * igual que ProModel. Verde-Amarillo-Rojo según porcentaje de llenado.
      */
@@ -448,6 +528,118 @@ public class FactoryPanel extends JPanel {
             g2.setColor(new Color(220, 180, 50, 200));
             g2.fillOval(startX + i*(dotR*2+2) - r/2, startY - r/2, r*2, r*2);
         }
+    }
+
+    // ── AGENTES: dibujar personita (workers) y montacargas ──────────────────
+    private static final Color[] AGENT_COLORS = {
+        new Color(255, 215,  50),  // T1 - amarillo
+        new Color( 50, 220, 120),  // T2 - verde
+        new Color(100, 180, 255),  // T3 - celeste
+        new Color(255, 130,  50),  // MK - naranja
+    };
+    private static final String[] AGENT_KEYS  = {"T1","T2","T3","MK"};
+    private static final boolean[] AGENT_IS_MK = {false, false, false, true};
+
+    private void drawAllAgents(Graphics2D g2, SimState st) {
+        for (int i = 0; i < AGENT_KEYS.length; i++) {
+            float[] a = st.resAgents.get(AGENT_KEYS[i]);
+            if (a == null) continue;
+            Res res = st.res(AGENT_KEYS[i]);
+            boolean busy = (res != null && res.busy);
+            Color col = AGENT_COLORS[i];
+            int ax = (int) a[2], ay = (int) a[3];
+            if (AGENT_IS_MK[i]) {
+                drawForklift(g2, ax, ay, col, busy);
+            } else {
+                drawPerson(g2, ax, ay, col, busy);
+            }
+        }
+    }
+
+    /** Dibuja una personita estilo sticktfigure */
+    private void drawPerson(Graphics2D g2, int cx, int cy, Color col, boolean busy) {
+        g2.setStroke(new BasicStroke(2f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+
+        // Glow si esta ocupado
+        if (busy) {
+            float glow = (float)(0.4 + 0.4 * Math.abs(Math.sin(Math.toRadians(animPhase * 4))));
+            g2.setColor(new Color(col.getRed(), col.getGreen(), col.getBlue(), (int)(100 * glow)));
+            g2.fillOval(cx - 14, cy - 26, 28, 28);
+        }
+
+        // Cabeza
+        g2.setColor(col);
+        g2.fillOval(cx - 6, cy - 22, 12, 12);
+        g2.setColor(col.darker());
+        g2.drawOval(cx - 6, cy - 22, 12, 12);
+
+        // Cuerpo
+        g2.setColor(col);
+        g2.drawLine(cx, cy - 10, cx, cy + 4);
+
+        // Brazos (animados si busy)
+        double armAngle = busy ? Math.sin(Math.toRadians(animPhase * 5)) * 0.5 : 0.3;
+        int ax1 = cx + (int)(10 * Math.cos(Math.PI/2 + armAngle));
+        int ay1 = cy - 6 + (int)(6 * Math.sin(Math.PI/2 + armAngle));
+        int ax2 = cx - (int)(10 * Math.cos(Math.PI/2 + armAngle));
+        int ay2 = cy - 6 + (int)(6 * Math.sin(Math.PI/2 + armAngle));
+        g2.drawLine(cx, cy - 6, ax1, ay1);
+        g2.drawLine(cx, cy - 6, ax2, ay2);
+
+        // Piernas (animadas si busy)
+        double legAngle = busy ? Math.sin(Math.toRadians(animPhase * 5)) * 0.4 : 0.2;
+        g2.drawLine(cx, cy + 4, cx + (int)(8 * Math.sin(legAngle)),  cy + 14);
+        g2.drawLine(cx, cy + 4, cx - (int)(8 * Math.sin(legAngle)),  cy + 14);
+
+        // Etiqueta pequeña
+        g2.setFont(new Font("Arial", Font.BOLD, 8));
+        g2.setColor(col);
+        g2.drawString(busy ? "OCUP." : "LIBRE", cx - 10, cy + 24);
+    }
+
+    /** Dibuja un montacargas simplificado */
+    private void drawForklift(Graphics2D g2, int cx, int cy, Color col, boolean busy) {
+        g2.setStroke(new BasicStroke(2f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+
+        // Glow si ocupado
+        if (busy) {
+            float glow = (float)(0.4 + 0.4 * Math.abs(Math.sin(Math.toRadians(animPhase * 4))));
+            g2.setColor(new Color(col.getRed(), col.getGreen(), col.getBlue(), (int)(80 * glow)));
+            g2.fillOval(cx - 16, cy - 20, 32, 26);
+        }
+
+        // Cuerpo del montacargas
+        g2.setColor(col.darker());
+        g2.fillRoundRect(cx - 12, cy - 16, 20, 14, 4, 4);
+        g2.setColor(col);
+        g2.drawRoundRect(cx - 12, cy - 16, 20, 14, 4, 4);
+
+        // Cabina (parte superior)
+        g2.setColor(col.darker().darker());
+        g2.fillRect(cx - 8, cy - 22, 12, 8);
+        g2.setColor(col);
+        g2.drawRect(cx - 8, cy - 22, 12, 8);
+
+        // Horquilla (fork) — mueve arriba/abajo si busy
+        int forkY = busy ? cy - 16 - (int)(4 * Math.abs(Math.sin(Math.toRadians(animPhase * 3)))) : cy - 10;
+        g2.setColor(new Color(200, 200, 200));
+        g2.setStroke(new BasicStroke(2.5f));
+        g2.drawLine(cx + 8, forkY, cx + 18, forkY);       // brazo superior
+        g2.drawLine(cx + 8, forkY + 4, cx + 18, forkY + 4); // brazo inferior
+        g2.drawLine(cx + 8, forkY - 4, cx + 8, forkY + 8);  // mástil
+
+        // Ruedas
+        g2.setColor(new Color(60, 60, 60));
+        g2.fillOval(cx - 12, cy - 3, 8, 8);
+        g2.fillOval(cx + 5,  cy - 3, 8, 8);
+        g2.setColor(new Color(120, 120, 120));
+        g2.drawOval(cx - 12, cy - 3, 8, 8);
+        g2.drawOval(cx + 5,  cy - 3, 8, 8);
+
+        // Etiqueta
+        g2.setFont(new Font("Arial", Font.BOLD, 8));
+        g2.setColor(col);
+        g2.drawString(busy ? "OCUP." : "LIBRE", cx - 12, cy + 14);
     }
 
     // ── Leyendas ──────────────────────────────────────────────────────────
