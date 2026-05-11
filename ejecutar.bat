@@ -1,7 +1,7 @@
 @echo off
 setlocal
 echo ===========================================
-echo   Multi-Engrane Simulator (ProModel Style)
+echo   Promodel-Lite Simulator (ProModel Style)
 echo ===========================================
 echo.
 echo Compilando archivos fuente...

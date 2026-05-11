@@ -1,9 +1,24 @@
-import javax.swing.*;
-import javax.swing.border.*;
-import javax.swing.table.*;
-import java.awt.*;
-import java.awt.event.*;
-import java.util.*;
+import java.awt.BorderLayout;
+import java.awt.Color;
+import java.awt.Component;
+import java.awt.Dimension;
+import java.awt.FlowLayout;
+import java.awt.Font;
+import java.awt.event.ActionListener;
+
+import javax.swing.BorderFactory;
+import javax.swing.JButton;
+import javax.swing.JDialog;
+import javax.swing.JFrame;
+import javax.swing.JLabel;
+import javax.swing.JOptionPane;
+import javax.swing.JPanel;
+import javax.swing.JScrollPane;
+import javax.swing.JTabbedPane;
+import javax.swing.JTable;
+import javax.swing.table.DefaultTableCellRenderer;
+import javax.swing.table.DefaultTableModel;
+import javax.swing.table.JTableHeader;
 
 /**
  * BuildDialog - Diálogo "Construir" estilo ProModel.
@@ -19,7 +34,7 @@ public class BuildDialog extends JDialog {
     private DefaultTableModel tmLoc, tmRes, tmArribo;
 
     public BuildDialog(JFrame owner, SimParams p) {
-        super(owner, "Construir — Modelo Multi-Engrane", true);
+        super(owner, "Construir — Modelo Promodel-Lite", true);
         this.params = p.copy();
         setSize(820, 580);
         setLocationRelativeTo(owner);
@@ -31,7 +46,7 @@ public class BuildDialog extends JDialog {
         setLayout(new BorderLayout());
 
         // Header
-        JLabel hdr = lbl("  Construir — Modelo Multi-Engrane", SimConstants.FONT_TITLE, SimConstants.C_TEXT);
+        JLabel hdr = lbl("  Construir — Modelo Promodel-Lite", SimConstants.FONT_TITLE, SimConstants.C_TEXT);
         hdr.setBackground(SimConstants.BG_HEADER); hdr.setOpaque(true);
         hdr.setBorder(BorderFactory.createCompoundBorder(
             BorderFactory.createMatteBorder(0,0,2,0,SimConstants.C_ACCENT),

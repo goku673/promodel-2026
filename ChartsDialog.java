@@ -1,17 +1,33 @@
-import javax.swing.*;
-import javax.swing.border.*;
-import java.awt.*;
-import java.awt.geom.*;
+import java.awt.BasicStroke;
+import java.awt.BorderLayout;
+import java.awt.Color;
+import java.awt.FlowLayout;
+import java.awt.Font;
+import java.awt.FontMetrics;
+import java.awt.GradientPaint;
+import java.awt.Graphics;
+import java.awt.Graphics2D;
+import java.awt.RenderingHints;
+import java.awt.geom.Path2D;
 import java.text.DecimalFormat;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
+
+import javax.swing.BorderFactory;
+import javax.swing.JButton;
+import javax.swing.JDialog;
+import javax.swing.JFrame;
+import javax.swing.JLabel;
+import javax.swing.JPanel;
+import javax.swing.JTabbedPane;
 
 /** ChartsDialog - Ventana de gráficas estadísticas con Graphics2D puro. */
 public class ChartsDialog extends JDialog {
     private final SimState state;
 
     public ChartsDialog(JFrame owner, SimState state) {
-        super(owner, "Graficas de Simulacion - Multi-Engrane", false);
+        super(owner, "Graficas de Simulacion - Promodel-Lite", false);
         this.state = state;
         setSize(820, 560);
         setLocationRelativeTo(owner);

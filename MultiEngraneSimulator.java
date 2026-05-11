@@ -1,9 +1,9 @@
-import javax.swing.UIManager;
 import javax.swing.SwingUtilities;
+import javax.swing.UIManager;
 
 /**
  * ╔══════════════════════════════════════════════════════════════════════════╗
- * ║         MULTI-ENGRANE SIMULATOR — Simulación de Fabricación             ║
+ * ║         PROMODEL-LITE SIMULATOR — Simulación de Fabricación             ║
  * ║                                                                          ║
  * ║  Motor: Simulación de Eventos Discretos (DES) con FEL                   ║
  * ║  GUI:   Java Swing con tema oscuro y animación en tiempo real            ║
