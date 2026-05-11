@@ -142,6 +142,29 @@ public class MainFrame extends JFrame {
         mSim.add(miReset); mSim.addSeparator(); mSim.add(miCharts);
         mb.add(mSim);
 
+        // ── Menú Construir (estilo ProModel) ──────────────────────────────
+        JMenu mBuild = darkMenu("Construir");
+        JMenuItem miBuildMain = darkItem("Abrir editor del modelo...");
+        JMenuItem miLocEdit   = darkItem("Locaciones        Ctrl+L");
+        JMenuItem miEntEdit   = darkItem("Entidades         Ctrl+E");
+        JMenuItem miRutEdit   = darkItem("Redes de Ruta     Ctrl+N");
+        JMenuItem miResEdit   = darkItem("Recursos          Ctrl+R");
+        JMenuItem miProcEdit  = darkItem("Procesamiento     Ctrl+P");
+        JMenuItem miArrEdit   = darkItem("Arribos           Ctrl+I");
+
+        miBuildMain.addActionListener(e -> showBuildDialog(0));
+        miLocEdit  .addActionListener(e -> showBuildDialog(0));
+        miEntEdit  .addActionListener(e -> showBuildDialog(1));
+        miRutEdit  .addActionListener(e -> showBuildDialog(2));
+        miResEdit  .addActionListener(e -> showBuildDialog(3));
+        miProcEdit .addActionListener(e -> showBuildDialog(4));
+        miArrEdit  .addActionListener(e -> showBuildDialog(5));
+
+        mBuild.add(miBuildMain); mBuild.addSeparator();
+        mBuild.add(miLocEdit); mBuild.add(miEntEdit); mBuild.add(miRutEdit);
+        mBuild.add(miResEdit); mBuild.add(miProcEdit); mBuild.add(miArrEdit);
+        mb.add(mBuild);
+
         // Menú Ayuda
         JMenu mHelp = darkMenu("Ayuda");
         JMenuItem miAbout = darkItem("Acerca de...");
@@ -219,19 +242,23 @@ public class MainFrame extends JFrame {
     private void onFinished() {
         setStatus("FINALIZADO", SimConstants.C_ACCENT2);
         controlPanel.onStopped();
-        if (state != null) {
-            JOptionPane.showMessageDialog(this,
-                String.format("✅ Simulación finalizada\n\n" +
-                    "Tiempo simulado:     %.1f min (%.1f h)\n" +
-                    "Barras llegadas:     %d\n" +
-                    "Piezas finalizadas:  %d\n" +
-                    "Piezas en sistema:   %d",
-                    state.clk, state.clk / 60.0,
-                    state.barrasLlegadas.get(),
-                    state.piezasFinales.get(),
-                    state.enSistema),
-                "Simulación Completada",
-                JOptionPane.INFORMATION_MESSAGE);
+        if (state == null) return;
+        // Preguntar si desea ver resultados
+        int opt = JOptionPane.showConfirmDialog(this,
+            String.format(
+                "Simulacion finalizada.%n%n" +
+                "  Tiempo simulado:    %.1f min (%.1f h)%n" +
+                "  Barras llegadas:    %d%n" +
+                "  Piezas finalizadas: %d%n%n" +
+                "Deseas ver el reporte completo de resultados?",
+                state.clk, state.clk/60.0,
+                state.barrasLlegadas.get(),
+                state.piezasFinales.get()),
+            "Simulacion Completada",
+            JOptionPane.YES_NO_OPTION,
+            JOptionPane.QUESTION_MESSAGE);
+        if (opt == JOptionPane.YES_OPTION) {
+            new ResultsDialog(this, state).setVisible(true);
         }
     }
 
@@ -246,11 +273,36 @@ public class MainFrame extends JFrame {
     public void showCharts() {
         if (state == null) {
             JOptionPane.showMessageDialog(this,
-                "Inicia la simulación primero.",
+                "Inicia la simulacion primero.",
                 "Sin datos", JOptionPane.WARNING_MESSAGE);
             return;
         }
         new ChartsDialog(this, state).setVisible(true);
+    }
+
+    public void showBuildDialog(int tab) {
+        if (state != null && state.running && !state.paused) {
+            JOptionPane.showMessageDialog(this,
+                "Detiene o pausa la simulacion antes de editar el modelo.",
+                "Aviso", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        BuildDialog dlg = new BuildDialog(this, params);
+        // Abrir en la pestaña seleccionada
+        if (dlg.getContentPane().getComponent(1) instanceof javax.swing.JTabbedPane) {
+            ((javax.swing.JTabbedPane)dlg.getContentPane().getComponent(1)).setSelectedIndex(tab);
+        }
+        dlg.setVisible(true);
+        if (dlg.saved) params = dlg.params;
+    }
+
+    public void showResults() {
+        if (state == null) {
+            JOptionPane.showMessageDialog(this, "Sin datos de simulacion.",
+                "Aviso", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        new ResultsDialog(this, state).setVisible(true);
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────
