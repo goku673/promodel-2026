@@ -2,7 +2,7 @@
 
 Un simulador de eventos discretos (DES) avanzado escrito en Java, diseñado para replicar la estética y funcionalidad de **ProModel** para un sistema de manufactura de engranes.
 
-![Captura de Pantalla](https://ibb.co/8LPDc8YG)
+![Captura de Pantalla](https://i.ibb.co/ksqg1cmz/promodel-plus.jpg)
 
 ## 🚀 Características Principales
 
