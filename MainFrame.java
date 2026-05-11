@@ -16,7 +16,7 @@ import javax.swing.SwingConstants;
 
 
 /**
- * MainFrame - Ventana principal del simulador Multi-Engrane.
+ * MainFrame - Ventana principal del simulador Promodel-Lite.
  *
  * Layout:
  *   NORTH  → Header con título y reloj
@@ -42,7 +42,7 @@ public class MainFrame extends JFrame {
     JLabel        lblStatus;
 
     public MainFrame() {
-        super("⚙ Multi-Engrane — Simulador de Fabricación de Engranes");
+        super("⚙ Promodel-Lite — Simulador de Fabricación de Engranes");
         setDefaultCloseOperation(EXIT_ON_CLOSE);
         setSize(1200, 800);
         setMinimumSize(new Dimension(1000, 650));
@@ -72,7 +72,7 @@ public class MainFrame extends JFrame {
         h.setPreferredSize(new Dimension(0, 58));
 
         // Título izquierda
-        JLabel title = new JLabel("  ⚙  MULTI-ENGRANE  —  Simulador de Fabricación de Engranes");
+        JLabel title = new JLabel("  ⚙  PROMODEL-LITE  —  Simulador de Fabricación de Engranes");
         title.setFont(SimConstants.FONT_TITLE);
         title.setForeground(SimConstants.C_TEXT);
         h.add(title, BorderLayout.WEST);
@@ -169,13 +169,13 @@ public class MainFrame extends JFrame {
         JMenu mHelp = darkMenu("Ayuda");
         JMenuItem miAbout = darkItem("Acerca de...");
         miAbout.addActionListener(e -> JOptionPane.showMessageDialog(this,
-            "Multi-Engrane Simulator v1.0\n" +
+            "Promodel-Lite Simulator v1.0\n" +
             "Simulación de Eventos Discretos (DES)\n" +
             "Java Swing — Sin dependencias externas\n\n" +
             "Proceso: BARRA → CONVEYOR_1 → ALMACEN_1 → CORTADORA\n" +
             "         → TORNO → CONVEYOR_2 → FRESADORA → ALMACEN_2\n" +
             "         → PINTURA → INSPECCION_1 → EMPAQUE → EMBARQUE",
-            "Acerca de Multi-Engrane Simulator",
+            "Acerca de Promodel-Lite Simulator",
             JOptionPane.INFORMATION_MESSAGE));
         mHelp.add(miAbout);
         mb.add(mHelp);

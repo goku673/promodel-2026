@@ -1,7 +1,22 @@
-import javax.swing.*;
-import javax.swing.border.*;
-import java.awt.*;
-import java.awt.event.*;
+import java.awt.BorderLayout;
+import java.awt.Color;
+import java.awt.FlowLayout;
+import java.awt.Font;
+import java.awt.GridBagConstraints;
+import java.awt.GridBagLayout;
+import java.awt.Insets;
+import java.awt.event.ActionListener;
+
+import javax.swing.BorderFactory;
+import javax.swing.JButton;
+import javax.swing.JDialog;
+import javax.swing.JFrame;
+import javax.swing.JLabel;
+import javax.swing.JOptionPane;
+import javax.swing.JPanel;
+import javax.swing.JScrollPane;
+import javax.swing.JTabbedPane;
+import javax.swing.JTextField;
 
 /** ParamsDialog - Diálogo modal para editar todos los parámetros de simulación. */
 public class ParamsDialog extends JDialog {
@@ -34,7 +49,7 @@ public class ParamsDialog extends JDialog {
     private void build() {
         setLayout(new BorderLayout());
 
-        JLabel hdr = new JLabel("  Parametros de Simulacion - Multi-Engrane");
+        JLabel hdr = new JLabel("  Parametros de Simulacion - Promodel-Lite");
         hdr.setFont(SimConstants.FONT_TITLE);
         hdr.setForeground(SimConstants.C_TEXT);
         hdr.setBackground(SimConstants.BG_HEADER);
