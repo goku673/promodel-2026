@@ -159,7 +159,18 @@ public class SimEngine {
 
     private void doOperation(Entity e) {
         ProModelData.ProcDef proc = findOperation(e.typeName, e.curLoc);
-        double waitTime = (proc != null) ? parseTime(proc.operation) : 0;
+        double waitTime = 0;
+        if (proc != null && proc.operation != null) {
+            String[] lines = proc.operation.split("\n");
+            for (String line : lines) {
+                line = line.trim().toUpperCase();
+                if (line.startsWith("WAIT")) {
+                    waitTime += parseTime(line);
+                } else if (line.matches("^[0-9]+.*") || line.startsWith("N(") || line.startsWith("E(") || line.startsWith("U(") || line.startsWith("T(")) {
+                    waitTime += parseTime(line);
+                }
+            }
+        }
 
         if (waitTime > 0) {
             schedule(s.clk + waitTime, () -> doRouting(e));
@@ -286,6 +297,20 @@ public class SimEngine {
                 best = u;
             }
         }
+        
+        java.util.List<String> tied = new java.util.ArrayList<>();
+        for (String u : units) {
+            Loc l = s.locs.get(u);
+            if (l.cnt + l.waiting.size() == minL) {
+                tied.add(u);
+            }
+        }
+        
+        if (tied.size() > 1) {
+            // Escoger aleatoriamente entre las empatadas
+            return tied.get((int)(Math.random() * tied.size()));
+        }
+        
         return best;
     }
 

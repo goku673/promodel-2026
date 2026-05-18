@@ -38,6 +38,9 @@ public class FactoryPanel extends JPanel {
                 // Si la simulación está corriendo, bloquear edición
                 if (state.running) {
                     selected = null;
+                    if (GraphicsDialog.instance != null) {
+                        GraphicsDialog.instance.setSelectedLoc(null);
+                    }
                     repaint();
                     return;
                 }
@@ -67,6 +70,10 @@ public class FactoryPanel extends JPanel {
                 }
                 
                 selected = clicked; // Actualizar selección
+                
+                if (GraphicsDialog.instance != null) {
+                    GraphicsDialog.instance.setSelectedLoc(clicked != null ? clicked.l : null);
+                }
                 
                 if (clicked == null) {
                     repaint();
@@ -332,6 +339,47 @@ public class FactoryPanel extends JPanel {
             g2.setColor(Color.BLUE);
             g2.setStroke(new BasicStroke(1f));
             g2.drawRect(x + w - HANDLE_SIZE/2, y + h - HANDLE_SIZE/2, HANDLE_SIZE, HANDLE_SIZE);
+        }
+
+        // 4. Medidor (Gauge)
+        if (loc.showGauge && loc.cap > 0 && loc.cap < Integer.MAX_VALUE) {
+            int gw = w - 4;
+            int gh = 8;
+            int gx = x + 2;
+            int gy = y + h - gh - 2;
+            
+            g2.setColor(new Color(30, 30, 30, 200));
+            g2.fillRect(gx, gy, gw, gh);
+            
+            g2.setColor(new Color(40, 220, 80));
+            int fillW = (int) (gw * ((double) loc.cnt / loc.cap));
+            if (fillW > gw) fillW = gw;
+            g2.fillRect(gx, gy, fillW, gh);
+            
+            g2.setColor(Color.BLACK);
+            g2.drawRect(gx, gy, gw, gh);
+        }
+
+        // 5. Contador
+        if (loc.showCounter) {
+            String valStr = "0";
+            if ("Entradas Totales".equals(loc.counterType)) valStr = String.valueOf(loc.totalEntries);
+            else if ("Salidas".equals(loc.counterType)) valStr = String.valueOf(loc.processed);
+            else valStr = String.valueOf(loc.cnt);
+            
+            g2.setFont(new Font("Monospaced", Font.BOLD, 14));
+            FontMetrics fm2 = g2.getFontMetrics();
+            int cw = fm2.stringWidth(valStr) + 12;
+            int ch = fm2.getHeight() + 6;
+            int cx = x + w - cw;
+            int cy = y;
+            
+            g2.setColor(new Color(0, 0, 0, 200));
+            g2.fillRect(cx, cy, cw, ch);
+            g2.setColor(Color.WHITE);
+            g2.drawString(valStr, cx + 6, cy + fm2.getAscent() + 3);
+            g2.setColor(new Color(150, 150, 150));
+            g2.drawRect(cx, cy, cw, ch);
         }
     }
 }

@@ -88,23 +88,31 @@ public class BuildDialog extends JDialog {
 
     // ── Tab Locaciones ────────────────────────────────────────────────────
     private JPanel buildLocTab() {
-        String[] cols = {"Nombre","Capacidad","Unidades","Estadist.","Reglas","Costos"};
+        String[] cols = {"Nombre","Capacidad","Unidades","Mostrar Contador","Tipo Contador","Mostrar Medidor","Estadist.","Reglas"};
         Object[][] data = new Object[0][0];
         
         if (currentData != null) {
-            data = new Object[currentData.locations.size()][6];
+            data = new Object[currentData.locations.size()][8];
             for (int i = 0; i < currentData.locations.size(); i++) {
                 ProModelData.LocDef l = currentData.locations.get(i);
-                data[i] = new Object[]{l.name, l.cap, l.units, l.stats, l.rules, l.costs};
+                data[i] = new Object[]{l.name, l.cap, l.units, l.showCounter, l.counterType, l.showGauge, l.stats, l.rules};
             }
         }
         
         tmLoc = new DefaultTableModel(data, cols) {
-            public boolean isCellEditable(int r, int c) { return c == 1; } // solo Cap editable
+            public boolean isCellEditable(int r, int c) { return c == 1 || c == 3 || c == 4 || c == 5; }
+            public Class<?> getColumnClass(int columnIndex) {
+                if (columnIndex == 3 || columnIndex == 5) return Boolean.class;
+                return String.class;
+            }
         };
-        return tablePanel(tmLoc,
-            "Capacidad: edita la columna 'Capacidad'. INFINITE = sin limite.",
-            new int[]{160,80,80,120,150,80});
+        JPanel p = tablePanel(tmLoc, "Configura capacidad y opciones visuales.", new int[]{160,80,60,110,140,110,120,100});
+        
+        JScrollPane sp = (JScrollPane) p.getComponent(0);
+        JTable table = (JTable) sp.getViewport().getView();
+        javax.swing.JComboBox<String> cbType = new javax.swing.JComboBox<>(new String[]{"Contenido Actual", "Entradas Totales", "Salidas"});
+        table.getColumnModel().getColumn(4).setCellEditor(new javax.swing.DefaultCellEditor(cbType));
+        return p;
     }
 
     // ── Tab Entidades ─────────────────────────────────────────────────────
@@ -279,13 +287,20 @@ public class BuildDialog extends JDialog {
     }
 
     private void saveAndClose() {
-        // En esta versión dinámica, guardamos las capacidades modificadas de vuelta al modelo
         if (currentData != null) {
             for (int i = 0; i < tmLoc.getRowCount(); i++) {
-                Object val = tmLoc.getValueAt(i, 1);
-                if (val != null) {
-                    currentData.locations.get(i).cap = val.toString().trim();
-                }
+                ProModelData.LocDef l = currentData.locations.get(i);
+                Object capVal = tmLoc.getValueAt(i, 1);
+                if (capVal != null) l.cap = capVal.toString().trim();
+                
+                Object showC = tmLoc.getValueAt(i, 3);
+                if (showC != null) l.showCounter = (Boolean)showC;
+                
+                Object cType = tmLoc.getValueAt(i, 4);
+                if (cType != null) l.counterType = cType.toString();
+                
+                Object showG = tmLoc.getValueAt(i, 5);
+                if (showG != null) l.showGauge = (Boolean)showG;
             }
         }
         saved = true;

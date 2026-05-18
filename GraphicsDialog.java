@@ -11,6 +11,14 @@ import javax.imageio.ImageIO;
 public class GraphicsDialog extends JDialog {
 
     private MainFrame mainFrame;
+    public static GraphicsDialog instance = null;
+    
+    private Loc currentLoc = null;
+    private boolean updating = false;
+    
+    private JCheckBox chkCounter;
+    private JComboBox<String> cbType;
+    private JCheckBox chkGauge;
     public static class ImageItem {
         public String name;
         public Image img;
@@ -57,13 +65,23 @@ public class GraphicsDialog extends JDialog {
     public GraphicsDialog(MainFrame owner) {
         super(owner, "Gráficas", false); // false = modal desactivado, puede interactuar con el lienzo
         this.mainFrame = owner;
-        setSize(300, 600);
+        instance = this;
+        setSize(300, 750);
         setLocationRelativeTo(owner);
         // Desplazar a la izquierda de la ventana principal para que parezca una barra lateral
         Point loc = owner.getLocation();
         setLocation(Math.max(0, loc.x - 310), loc.y);
         
         getContentPane().setBackground(SimConstants.BG_PANEL);
+        
+        addWindowListener(new WindowAdapter() {
+            @Override
+            public void windowClosing(WindowEvent e) {
+                selectedItem = null;
+                instance = null;
+            }
+        });
+        
         buildUI();
     }
 
@@ -96,8 +114,10 @@ public class GraphicsDialog extends JDialog {
         JButton btnVer   = btn("Deseleccionar", e -> deselect());
         JButton btnClose = btn("Cerrar", e -> {
             selectedItem = null;
+            instance = null;
             refreshGrid();
             setVisible(false);
+            dispose();
         });
         
         pnlBotones.add(btnNuevo);
@@ -106,7 +126,101 @@ public class GraphicsDialog extends JDialog {
         
         add(pnlBotones, BorderLayout.EAST);
         
+        // --- FOOTER PARA PROPIEDADES DE LOCACIÓN ---
+        JPanel footer = new JPanel();
+        footer.setLayout(new BoxLayout(footer, BoxLayout.Y_AXIS));
+        footer.setBackground(SimConstants.BG_PANEL);
+        footer.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createMatteBorder(1, 0, 0, 0, SimConstants.C_BORDER),
+            BorderFactory.createEmptyBorder(10, 10, 10, 10)
+        ));
+        
+        JLabel lblProp = new JLabel("Propiedades de Locación Seleccionada:");
+        lblProp.setFont(SimConstants.FONT_LABEL);
+        lblProp.setForeground(SimConstants.C_ACCENT2);
+        footer.add(lblProp);
+        footer.add(Box.createVerticalStrut(5));
+        
+        chkCounter = new JCheckBox("Mostrar Contador");
+        chkCounter.setOpaque(false); chkCounter.setForeground(SimConstants.C_TEXT);
+        
+        cbType = new JComboBox<>(new String[]{"Contenido Actual", "Entradas Totales", "Salidas"});
+        cbType.setMaximumSize(new Dimension(250, 25));
+        
+        chkGauge = new JCheckBox("Mostrar Medidor");
+        chkGauge.setOpaque(false); chkGauge.setForeground(SimConstants.C_TEXT);
+        
+        footer.add(chkCounter);
+        footer.add(Box.createVerticalStrut(2));
+        footer.add(cbType);
+        footer.add(Box.createVerticalStrut(2));
+        footer.add(chkGauge);
+        
+        add(footer, BorderLayout.SOUTH);
+        
+        // Listeners del footer
+        ActionListener updateProp = e -> {
+            if (updating || currentLoc == null) return;
+            
+            boolean sc = chkCounter.isSelected();
+            String ct = (String) cbType.getSelectedItem();
+            boolean sg = chkGauge.isSelected();
+            
+            currentLoc.showCounter = sc;
+            currentLoc.counterType = ct;
+            currentLoc.showGauge = sg;
+            
+            // Actualizar en el modelo persistente
+            if (mainFrame.currentData != null) {
+                for (ProModelData.LocDef d : mainFrame.currentData.locations) {
+                    if (d.name.equals(currentLoc.name) || currentLoc.name.startsWith(d.name + ".")) {
+                        d.showCounter = sc;
+                        d.counterType = ct;
+                        d.showGauge = sg;
+                    }
+                }
+            }
+            
+            // Sincronizar en vivo si hay una simulación activa
+            if (mainFrame.state != null) {
+                Loc activeLoc = mainFrame.state.loc(currentLoc.name);
+                if (activeLoc != null && activeLoc != currentLoc) {
+                    activeLoc.showCounter = sc;
+                    activeLoc.counterType = ct;
+                    activeLoc.showGauge = sg;
+                }
+            }
+            
+            mainFrame.repaint();
+        };
+        
+        chkCounter.addActionListener(updateProp);
+        cbType.addActionListener(updateProp);
+        chkGauge.addActionListener(updateProp);
+        
+        setSelectedLoc(null); // Desactivar al inicio
+        
         refreshGrid();
+    }
+    
+    public void setSelectedLoc(Loc l) {
+        this.currentLoc = l;
+        updating = true;
+        if (l == null) {
+            chkCounter.setEnabled(false);
+            chkGauge.setEnabled(false);
+            cbType.setEnabled(false);
+            chkCounter.setSelected(false);
+            chkGauge.setSelected(false);
+        } else {
+            chkCounter.setEnabled(true);
+            chkGauge.setEnabled(true);
+            cbType.setEnabled(true);
+            chkCounter.setSelected(l.showCounter);
+            chkGauge.setSelected(l.showGauge);
+            cbType.setSelectedItem(l.counterType);
+        }
+        updating = false;
     }
 
     private void uploadNewImage() {

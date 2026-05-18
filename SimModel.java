@@ -97,6 +97,9 @@ class Loc {
 
     public int x, y, w, h;
     public String iconPath = null;
+    public boolean showCounter = false;
+    public String counterType = "Contenido Actual";
+    public boolean showGauge = false;
 
     public Loc(String name, int cap, LType type, int x, int y, int w, int h) {
         this.name = name; this.cap = cap; this.type = type;
@@ -303,7 +306,12 @@ class SimState {
             
             addL(d.name, cap, LType.MAQUINA, d.x, d.y, d.w, d.h);
             Loc newLoc = locs.get(d.name);
-            if (newLoc != null) newLoc.iconPath = d.iconPath;
+            if (newLoc != null) {
+                newLoc.iconPath = d.iconPath;
+                newLoc.showCounter = d.showCounter;
+                newLoc.counterType = d.counterType;
+                newLoc.showGauge = d.showGauge;
+            }
         }
         
         for (ProModelData.ResDef r : data.resources) {

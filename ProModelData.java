@@ -19,6 +19,9 @@ public class ProModelData {
         public int w = 100;
         public int h = 60;
         public String iconPath = null;
+        public boolean showCounter = false;
+        public String counterType = "Contenido Actual";
+        public boolean showGauge = false;
         
         @Override
         public String toString() { return "Loc: " + name + " (Cap:" + cap + ")"; }
