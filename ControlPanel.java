@@ -117,10 +117,10 @@ public class ControlPanel extends JPanel {
         JPanel p = new JPanel(new GridLayout(4, 1, 0, 5));
         p.setOpaque(false);
         p.setBorder(BorderFactory.createEmptyBorder(0, 10, 0, 10));
-        lblBarras    = counterLabel("Barras llegadas: 0");
-        lblPiezas    = counterLabel("Piezas finales:  0");
-        lblEnSistema = counterLabel("En sistema:      0");
-        lblEmbarque  = counterLabel("En Embarque:     0");
+        lblBarras    = counterLabel("Entidades Creadas: 0");
+        lblPiezas    = counterLabel("Ent. Salientes:    0");
+        lblEnSistema = counterLabel("En sistema:        0");
+        lblEmbarque  = counterLabel("Total Procesadas:  0");
         p.add(lblBarras); p.add(lblPiezas); p.add(lblEnSistema); p.add(lblEmbarque);
         return p;
     }
@@ -165,10 +165,10 @@ public class ControlPanel extends JPanel {
 
     public void refreshCounters() {
         if (frame.state == null) return;
-        lblBarras   .setText("Barras llegadas: " + frame.state.barrasLlegadas.get());
-        lblPiezas   .setText("Piezas finales:  " + frame.state.piezasFinales.get());
-        lblEnSistema.setText("En sistema:      " + frame.state.enSistema);
-        lblEmbarque .setText("En Embarque:     " + frame.state.embarqueTotales.get());
+        lblBarras   .setText("Entidades Creadas: " + frame.state.entidadesCreadas.get());
+        lblPiezas   .setText("Ent. Salientes:    " + frame.state.entidadesSalientes.get());
+        lblEnSistema.setText("En sistema:        " + frame.state.enSistema);
+        lblEmbarque .setText("Total Procesadas:  " + frame.state.totalProcesadas.get());
         double clk = frame.state.clk;
         lblClockBig.setText(String.format("%d:%02d", (int)(clk/60), (int)(clk%60)));
     }

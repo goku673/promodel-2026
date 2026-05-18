@@ -91,12 +91,6 @@ public class StatsPanel extends JPanel {
 
     private void populateEmpty() {
         model.setRowCount(0);
-        String[] names = {
-            "CONVEYOR_1","ALMACEN_1","CORTADORA","TORNO","CONVEYOR_2",
-            "FRESADORA","ALMACEN_2","PINTURA","INSPECCION_1",
-            "INSPECCION_2","EMPAQUE","EMBARQUE"
-        };
-        for (String n : names) model.addRow(new Object[]{n,"—",0,0,0,0.0});
     }
 
     // ── Renderer de barra de utilización ─────────────────────────────────
@@ -110,7 +104,7 @@ public class StatsPanel extends JPanel {
                 JTable t, Object val, boolean sel, boolean foc, int row, int col) {
             value = val instanceof Double ? (Double) val : 0.0;
             Color bg = sel ? SimConstants.BG_CARD
-                    : (row%2==0 ? SimConstants.BG_PANEL : new Color(25,25,50));
+                    : (row%2==0 ? Color.WHITE : new Color(245,245,245));
             setBackground(bg);
             return this;
         }
@@ -149,7 +143,7 @@ public class StatsPanel extends JPanel {
             setOpaque(true);
             setForeground(SimConstants.C_TEXT);
             setBackground(sel ? SimConstants.BG_CARD
-                              : (row%2==0 ? SimConstants.BG_PANEL : new Color(25,25,50)));
+                              : (row%2==0 ? Color.WHITE : new Color(245,245,245)));
             setBorder(BorderFactory.createEmptyBorder(0,6,0,4));
             return this;
         }

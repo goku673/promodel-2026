@@ -90,20 +90,20 @@ public class ResultsDialog extends JDialog {
         };
 
         java.util.List<Object[]> rows = new ArrayList<>();
-        rows.add(row("BARRA ACERO",    "0.00","0.00","0.00","0.00","0.00","0.00","0.00"));
-        rows.add(row("PIEZA CORTADA",  "0.00","0.00","0.00","0.00","0.00","0.00","0.00"));
-        rows.add(row("PIEZA TORNEADA", "0.00","0.00","0.00","0.00","0.00","0.00","0.00"));
-        rows.add(row("PIEZA FRESADA",  "0.00","0.00","0.00","0.00","0.00","0.00","0.00"));
-        rows.add(row("PIEZA PINTADA",  "0.00","0.00","0.00","0.00","0.00","0.00","0.00"));
+        if (state.currentData != null) {
+            for (ProModelData.EntDef e : state.currentData.entities) {
+                rows.add(row(e.name, "0.00", "0.00", "0.00", "0.00", "0.00", "0.00", "0.00"));
+            }
+        }
 
-        int pf = state.piezasFinales.get();
+        int pf = state.entidadesSalientes.get();
         double tSist = pf > 0 ? state.clk / pf * 6 : 0;
         rows.add(new Object[]{
-            "PIEZA FINAL",
+            "TOTALES",
             df.format(pf),
             df.format(state.enSistema),
             df.format(tSist),
-            "12.01", "165.66", "38.07", "83.05"
+            "0.00", "0.00", "0.00", "0.00"
         });
 
         return tablePanel("Entidad Resumen", cols, rows);
@@ -113,13 +113,19 @@ public class ResultsDialog extends JDialog {
     //  TAB 2 — ENTITY SUMMARY (gráfica barras - Total Exits)
     // ═══════════════════════════════════════════════════════════
     private JPanel buildEntityChartTab() {
-        String[] labels = {
-            "BARRA ACERO","PIEZA CORTADA","PIEZA TORNEADA",
-            "PIEZA FRESADA","PIEZA PINTADA","PIEZA FINAL"
-        };
-        double[] values = {
-            0, 0, 0, 0, 0, state.piezasFinales.get()
-        };
+        java.util.List<String> lbl = new ArrayList<>();
+        java.util.List<Double> val = new ArrayList<>();
+        if (state.currentData != null) {
+            for (ProModelData.EntDef e : state.currentData.entities) {
+                lbl.add(e.name);
+                val.add(0.0); // Stats per entity can be implemented later
+            }
+        }
+        lbl.add("TOTALES");
+        val.add((double)state.entidadesSalientes.get());
+        
+        String[] labels = lbl.toArray(new String[0]);
+        double[] values = val.stream().mapToDouble(Double::doubleValue).toArray();
         return barChartPanel("Entity Summary — Total Exits", "Total Exits", labels, values);
     }
 

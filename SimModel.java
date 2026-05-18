@@ -29,6 +29,21 @@ class Rng {
 
     /** Bernoulli: true con probabilidad p */
     public boolean prob(double p) { return r.nextDouble() < p; }
+
+    public double uniform(double mean, double halfRange) {
+        return mean + (r.nextDouble() * 2.0 - 1.0) * halfRange;
+    }
+
+    public double triangular(double min, double mode, double max) {
+        double u = r.nextDouble();
+        double range = max - min;
+        double mid = mode - min;
+        if (u <= mid / range) {
+            return min + Math.sqrt(u * range * mid);
+        } else {
+            return max - Math.sqrt((1.0 - u) * range * (max - mode));
+        }
+    }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -39,13 +54,21 @@ class Entity {
     public static void resetIds() { SEQ.set(1); }
 
     public final int id;
-    public EType type;
+    public String typeName = "";
+    public String iconPath = null;
     public double sysEntryTime;
     public String curLoc;
+    
+    // Animación
+    public float curX, curY;
+    public float targetX, targetY;
+    public double moveStartTime = -1;
+    public double moveEndTime = -1;
+    public boolean moving = false;
 
-    public Entity(EType type, double now) {
+    public Entity(String typeName, double now) {
         this.id           = SEQ.getAndIncrement();
-        this.type         = type;
+        this.typeName     = typeName;
         this.sysEntryTime = now;
     }
 }
@@ -73,6 +96,7 @@ class Loc {
     public final Deque<Runnable> waiting = new ArrayDeque<>();
 
     public int x, y, w, h;
+    public String iconPath = null;
 
     public Loc(String name, int cap, LType type, int x, int y, int w, int h) {
         this.name = name; this.cap = cap; this.type = type;
@@ -220,12 +244,15 @@ class SimState {
 
     public final Map<String, Loc> locs = new LinkedHashMap<>();
     public final Map<String, Res> res  = new LinkedHashMap<>();
+    public final List<ProModelData.ProcDef> routes = new ArrayList<>();
+    public final List<Entity> activeEntities = Collections.synchronizedList(new ArrayList<>());
+    public ProModelData currentData = null;
 
     public volatile double clk = 0;
 
-    public final AtomicInteger barrasLlegadas  = new AtomicInteger(0);
-    public final AtomicInteger piezasFinales   = new AtomicInteger(0);
-    public final AtomicInteger embarqueTotales = new AtomicInteger(0); // entidades que LLEGARON al Embarque
+    public final AtomicInteger entidadesCreadas  = new AtomicInteger(0);
+    public final AtomicInteger entidadesSalientes = new AtomicInteger(0);
+    public final AtomicInteger totalProcesadas = new AtomicInteger(0);
     public volatile int        enSistema       = 0;
 
     /** Historial [tiempo, throughput] para graficas */
@@ -246,58 +273,50 @@ class SimState {
     public SimState(SimParams p) {
         this.params = p;
         this.rng    = new Rng(p.semilla);
-        initLocs();
-        initRes();
-        initAgents();
+        // Se inicializa vacío. Los datos vendrán de ProModelData
     }
 
-    private void initLocs() {
-        // Layout: panel ~1060 x 490 px
-        // Fila 1 (y=50):  flujo principal de izquierda a derecha
-        // Fila 2 (y=240): ramificación inspección + empaque
-        // Fila 3 (y=380): embarque final
-        int W = 90, H = 65;
-        addL("CONVEYOR_1",   Integer.MAX_VALUE, LType.CONVEYOR,    20, 50, 130, H);
-        addL("ALMACEN_1",    params.alm1Cap,    LType.ALMACEN,    160, 50,   W, H);
-        addL("CORTADORA",    params.cortCap,    LType.MAQUINA,    260, 50,   W, H);
-        addL("TORNO",        params.tornCap,    LType.MAQUINA,    360, 50,   W, H);
-        addL("CONVEYOR_2",   Integer.MAX_VALUE, LType.CONVEYOR,   460, 50, 110, H);
-        addL("FRESADORA",    params.fresCap,    LType.MAQUINA,    580, 50,   W, H);
-        addL("ALMACEN_2",    params.alm2Cap,    LType.ALMACEN,    680, 50,   W, H);
-        addL("PINTURA",      params.pintCap,    LType.MAQUINA,    780, 50,   W, H);
-        addL("INSPECCION_1", params.ins1Cap,    LType.INSPECCION, 880, 50,   W, H);
-
-        addL("INSPECCION_2", params.ins2Cap,    LType.INSPECCION, 880,240,   W, H);
-        addL("EMPAQUE",      params.empCap,     LType.EMPAQUE,    680,240,   W, H);
-        addL("EMBARQUE",     params.embCap,     LType.EMBARQUE,   780,380,   W, H);
+    public void loadFromData(ProModelData data) {
+        this.currentData = data;
+        locs.clear();
+        res.clear();
+        resAgents.clear();
+        routes.clear();
+        if (data.processing != null) {
+            routes.addAll(data.processing);
+        }
+        
+        int defaultX = 50, defaultY = 50;
+        for (ProModelData.LocDef d : data.locations) {
+            int cap = 1;
+            try {
+                if (d.cap.equalsIgnoreCase("INFINITE")) cap = Integer.MAX_VALUE;
+                else if (!d.cap.isEmpty()) cap = Integer.parseInt(d.cap);
+            } catch (Exception e) {}
+            
+            if (d.x == -1) {
+                d.x = defaultX;
+                d.y = defaultY;
+                defaultX += 150;
+                if (defaultX > 800) { defaultX = 50; defaultY += 100; }
+            }
+            
+            addL(d.name, cap, LType.MAQUINA, d.x, d.y, d.w, d.h);
+            Loc newLoc = locs.get(d.name);
+            if (newLoc != null) newLoc.iconPath = d.iconPath;
+        }
+        
+        for (ProModelData.ResDef r : data.resources) {
+            res.put(r.name, new Res(r.name));
+            addAgent(r.name, 50, 50); 
+        }
     }
 
     private void addL(String n, int c, LType t, int x, int y, int w, int h) {
         locs.put(n, new Loc(n, c, t, x, y, w, h));
     }
 
-    private void initRes() {
-        res.put("T1", new Res("TRABAJADOR_1"));
-        res.put("T2", new Res("TRABAJADOR_2"));
-        res.put("T3", new Res("TRABAJADOR_3"));
-        res.put("MK", new Res("MONTACARGAS"));
-    }
-
-    private void initAgents() {
-        // Posicion HOME de cada agente (debajo de su locacion principal)
-        // Formato: [homeX, homeY, curX, curY, tgtX, tgtY, moving]
-        // T1 patrulla CORTADORA<->TORNO
-        addAgent("T1", 305f, 140f);
-        // T2 patrulla FRESADORA<->ALMACEN_2
-        addAgent("T2", 625f, 140f);
-        // T3 patrulla EMPAQUE<->EMBARQUE
-        addAgent("T3", 725f, 325f);
-        // MK patrulla ALMACEN_2<->PINTURA
-        addAgent("MK", 780f, 140f);
-    }
-
     private void addAgent(String key, float hx, float hy) {
-        // [0]=homeX [1]=homeY [2]=curX [3]=curY [4]=tgtX [5]=tgtY [6]=moving
         resAgents.put(key, new float[]{hx, hy, hx, hy, hx, hy, 0f});
     }
 
@@ -334,9 +353,9 @@ class SimState {
     /** Resetea todo el estado para una nueva ejecución */
     public void reset() {
         clk = 0;
-        barrasLlegadas.set(0);
-        piezasFinales.set(0);
-        embarqueTotales.set(0);
+        entidadesCreadas.set(0);
+        entidadesSalientes.set(0);
+        totalProcesadas.set(0);
         enSistema  = 0;
         running    = false;
         paused     = false;
@@ -358,5 +377,6 @@ class SimState {
             a[4] = a[0]; a[5] = a[1]; // tgtX/Y = homeX/Y
             a[6] = 0f;                 // no moving
         });
+        activeEntities.clear();
     }
 }

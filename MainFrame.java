@@ -2,6 +2,10 @@ import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
+import java.awt.Font;
+import java.awt.event.InputEvent;
+import java.awt.event.KeyEvent;
+import javax.swing.KeyStroke;
 
 import javax.swing.BorderFactory;
 import javax.swing.JFrame;
@@ -28,6 +32,7 @@ public class MainFrame extends JFrame {
 
     // Parámetros editables por el usuario
     SimParams params = new SimParams();
+    ProModelData currentData;
 
     // Componentes de simulación
     SimState   state;
@@ -54,15 +59,91 @@ public class MainFrame extends JFrame {
 
     // ── Construcción de la interfaz ───────────────────────────────────────
 
+    JPanel welcomePanel;
+    JPanel mainWrapper;
+
     private void buildUI() {
         setLayout(new BorderLayout(0, 0));
 
         add(buildHeader(),       BorderLayout.NORTH);
-        add(buildCenterPanel(),  BorderLayout.CENTER);
-        add(buildSouthPanel(),   BorderLayout.SOUTH);
 
+        factoryPanel = new FactoryPanel();
+        statsPanel = new StatsPanel();
         controlPanel = new ControlPanel(this);
-        add(controlPanel,        BorderLayout.EAST);
+        
+        // Vista principal de simulacion (oculta al inicio)
+        mainWrapper = new JPanel(new BorderLayout());
+        mainWrapper.setBackground(SimConstants.BG_DARK);
+        
+        JPanel centerWrapper = new JPanel(new BorderLayout());
+        centerWrapper.setBorder(BorderFactory.createEmptyBorder(8, 8, 4, 4));
+        centerWrapper.setBackground(SimConstants.BG_DARK);
+        centerWrapper.add(factoryPanel, BorderLayout.CENTER);
+        
+        JPanel southWrapper = new JPanel(new BorderLayout());
+        southWrapper.setBorder(BorderFactory.createEmptyBorder(4, 8, 8, 4));
+        southWrapper.setBackground(SimConstants.BG_DARK);
+        southWrapper.add(statsPanel, BorderLayout.CENTER);
+        
+        mainWrapper.add(centerWrapper, BorderLayout.CENTER);
+        mainWrapper.add(southWrapper, BorderLayout.SOUTH);
+        mainWrapper.add(controlPanel, BorderLayout.EAST);
+
+        // Vista de bienvenida
+        welcomePanel = buildWelcomePanel();
+        add(welcomePanel, BorderLayout.CENTER);
+    }
+
+    private JPanel buildWelcomePanel() {
+        JPanel w = new JPanel(new BorderLayout());
+        w.setBackground(SimConstants.BG_DARK);
+        
+        JLabel lblWelcome = new JLabel("Bienvenido a Promodel-Lite", SwingConstants.CENTER);
+        lblWelcome.setFont(new Font("Arial", Font.BOLD, 30));
+        lblWelcome.setForeground(SimConstants.C_TEXT);
+        
+        javax.swing.JButton btnImport = new javax.swing.JButton("Importar Modelo (.txt)");
+        btnImport.setFont(SimConstants.FONT_TITLE);
+        btnImport.setFocusPainted(false);
+        btnImport.addActionListener(e -> importModel());
+        
+        JPanel pCenter = new JPanel(new java.awt.GridBagLayout());
+        pCenter.setBackground(SimConstants.BG_DARK);
+        pCenter.add(btnImport);
+        
+        w.add(lblWelcome, BorderLayout.CENTER);
+        w.add(pCenter, BorderLayout.SOUTH);
+        return w;
+    }
+
+    private void importModel() {
+        javax.swing.JFileChooser fc = new javax.swing.JFileChooser();
+        if (fc.showOpenDialog(this) == javax.swing.JFileChooser.APPROVE_OPTION) {
+            try {
+                ProModelData data = ProModelParser.parse(fc.getSelectedFile().getAbsolutePath());
+                
+                // Guardamos para pasárselo a las demás ventanas (Construir, etc)
+                this.currentData = data;
+                
+                // Inicializar estado dinamico
+                state = new SimState(params.copy());
+                state.loadFromData(data);
+                
+                // Cambiar a vista de simulacion
+                remove(welcomePanel);
+                add(mainWrapper, BorderLayout.CENTER);
+                revalidate();
+                repaint();
+                
+                factoryPanel.setState(state);
+                statsPanel.setState(state);
+                
+                JOptionPane.showMessageDialog(this, "Modelo importado con éxito. Haz clic derecho en las locaciones para asignar imágenes.");
+            } catch(Exception ex) {
+                JOptionPane.showMessageDialog(this, "Error al importar: " + ex.getMessage());
+                ex.printStackTrace();
+            }
+        }
     }
 
     private JPanel buildHeader() {
@@ -97,28 +178,19 @@ public class MainFrame extends JFrame {
         return h;
     }
 
-    private JPanel buildCenterPanel() {
-        factoryPanel = new FactoryPanel();
-        JPanel wrapper = new JPanel(new BorderLayout());
-        wrapper.setBackground(SimConstants.BG_DARK);
-        wrapper.setBorder(BorderFactory.createEmptyBorder(8, 8, 4, 4));
-        wrapper.add(factoryPanel, BorderLayout.CENTER);
-        return wrapper;
-    }
 
-    private JPanel buildSouthPanel() {
-        statsPanel = new StatsPanel();
-        JPanel wrapper = new JPanel(new BorderLayout());
-        wrapper.setBackground(SimConstants.BG_DARK);
-        wrapper.setBorder(BorderFactory.createEmptyBorder(4, 8, 8, 4));
-        wrapper.add(statsPanel, BorderLayout.CENTER);
-        return wrapper;
-    }
 
     private void buildMenu() {
         JMenuBar mb = new JMenuBar();
         mb.setBackground(SimConstants.BG_CARD);
         mb.setBorder(BorderFactory.createEmptyBorder());
+
+        // Menú Archivo
+        JMenu mFile = darkMenu("Archivo");
+        JMenuItem miImport = darkItem("Importar Modelo (.txt)...");
+        miImport.addActionListener(e -> importModel());
+        mFile.add(miImport);
+        mb.add(mFile);
 
         // Menú Simulación
         JMenu mSim = darkMenu("Simulación");
@@ -145,14 +217,23 @@ public class MainFrame extends JFrame {
         // ── Menú Construir (estilo ProModel) ──────────────────────────────
         JMenu mBuild = darkMenu("Construir");
         JMenuItem miBuildMain = darkItem("Abrir editor del modelo...");
-        JMenuItem miLocEdit   = darkItem("Locaciones        Ctrl+L");
-        JMenuItem miEntEdit   = darkItem("Entidades         Ctrl+E");
-        JMenuItem miRutEdit   = darkItem("Redes de Ruta     Ctrl+N");
-        JMenuItem miResEdit   = darkItem("Recursos          Ctrl+R");
-        JMenuItem miProcEdit  = darkItem("Procesamiento     Ctrl+P");
-        JMenuItem miArrEdit   = darkItem("Arribos           Ctrl+I");
+        JMenuItem miGraphEdit = darkItem("Gráficas");
+        miGraphEdit.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_G, InputEvent.CTRL_DOWN_MASK));
+        JMenuItem miLocEdit   = darkItem("Locaciones");
+        miLocEdit.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_L, InputEvent.CTRL_DOWN_MASK));
+        JMenuItem miEntEdit   = darkItem("Entidades");
+        miEntEdit.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_E, InputEvent.CTRL_DOWN_MASK));
+        JMenuItem miRutEdit   = darkItem("Redes de Ruta");
+        miRutEdit.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_N, InputEvent.CTRL_DOWN_MASK));
+        JMenuItem miResEdit   = darkItem("Recursos");
+        miResEdit.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_R, InputEvent.CTRL_DOWN_MASK));
+        JMenuItem miProcEdit  = darkItem("Procesamiento");
+        miProcEdit.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_P, InputEvent.CTRL_DOWN_MASK));
+        JMenuItem miArrEdit   = darkItem("Arribos");
+        miArrEdit.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_I, InputEvent.CTRL_DOWN_MASK));
 
         miBuildMain.addActionListener(e -> showBuildDialog(0));
+        miGraphEdit.addActionListener(e -> new GraphicsDialog(this).setVisible(true));
         miLocEdit  .addActionListener(e -> showBuildDialog(0));
         miEntEdit  .addActionListener(e -> showBuildDialog(1));
         miRutEdit  .addActionListener(e -> showBuildDialog(2));
@@ -161,21 +242,50 @@ public class MainFrame extends JFrame {
         miArrEdit  .addActionListener(e -> showBuildDialog(5));
 
         mBuild.add(miBuildMain); mBuild.addSeparator();
+        mBuild.add(miGraphEdit); mBuild.addSeparator();
         mBuild.add(miLocEdit); mBuild.add(miEntEdit); mBuild.add(miRutEdit);
         mBuild.add(miResEdit); mBuild.add(miProcEdit); mBuild.add(miArrEdit);
         mb.add(mBuild);
 
         // Menú Ayuda
         JMenu mHelp = darkMenu("Ayuda");
+        
+        JMenuItem miTutorial = darkItem("Tutorial...");
+        miTutorial.addActionListener(e -> JOptionPane.showMessageDialog(this,
+            "TUTORIAL RÁPIDO DE USO:\n\n" +
+            "1. Importar Modelo:\n" +
+            "   Ve a 'Archivo > Importar Modelo' y selecciona tu archivo .txt o .mod generado por ProModel.\n\n" +
+            "2. Personalizar Gráficos:\n" +
+            "   - Ve a 'Construir > Gráficas' (Ctrl+G) para subir tus propios iconos PNG/JPG.\n" +
+            "   - En el lienzo, haz clic sobre una locación para seleccionarla, y luego en la ventana\n" +
+            "     de Gráficas selecciona el icono que desees aplicarle.\n\n" +
+            "3. Configurar Layout:\n" +
+            "   Arrastra las locaciones libremente por el lienzo. El simulador recordará automáticamente\n" +
+            "   las posiciones para tu próxima corrida.\n\n" +
+            "4. Configurar Parámetros:\n" +
+            "   Ve a 'Simulación > Parámetros...' para cambiar la duración (ej. '90 DAY') y la semilla.\n\n" +
+            "5. Atajos de Teclado (Menú Construir):\n" +
+            "   - Ctrl+G : Gráficas\n" +
+            "   - Ctrl+L : Locaciones\n" +
+            "   - Ctrl+E : Entidades\n" +
+            "   - Ctrl+N : Redes de Ruta\n" +
+            "   - Ctrl+R : Recursos\n" +
+            "   - Ctrl+P : Procesamiento\n" +
+            "   - Ctrl+I : Arribos\n\n" +
+            "6. Simulación y Resultados:\n" +
+            "   Usa el botón ▶ Iniciar. Puedes pausar o detener en cualquier momento.\n" +
+            "   Al terminar, ve a 'Simulación > Ver Gráficas...' para analizar la utilización y el flujo.",
+            "Tutorial de Promodel-Lite",
+            JOptionPane.INFORMATION_MESSAGE));
+        mHelp.add(miTutorial);
+        mHelp.addSeparator();
+        
         JMenuItem miAbout = darkItem("Acerca de...");
         miAbout.addActionListener(e -> JOptionPane.showMessageDialog(this,
             "Promodel-Lite Simulator v1.0\n" +
-            "Simulación de Eventos Discretos (DES)\n" +
-            "Java Swing — Sin dependencias externas\n\n" +
-            "Proceso: BARRA → CONVEYOR_1 → ALMACEN_1 → CORTADORA\n" +
-            "         → TORNO → CONVEYOR_2 → FRESADORA → ALMACEN_2\n" +
-            "         → PINTURA → INSPECCION_1 → EMPAQUE → EMBARQUE",
-            "Acerca de Promodel-Lite Simulator",
+            "Simulador Genérico Dinámico por Modelos ProModel (.txt)\n" +
+            "Java Swing — Sin dependencias externas",
+            "Acerca de Promodel-Lite",
             JOptionPane.INFORMATION_MESSAGE));
         mHelp.add(miAbout);
         mb.add(mHelp);
@@ -186,9 +296,18 @@ public class MainFrame extends JFrame {
     // ── Control de simulación ─────────────────────────────────────────────
 
     public void startSimulation() {
+        if (currentData == null) {
+            JOptionPane.showMessageDialog(this, "Importa un modelo .txt primero.", "Aviso", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        
         if (worker != null && !worker.isDone()) worker.cancel(true);
 
         state  = new SimState(params.copy());
+        
+        // ¡MUY IMPORTANTE! Volver a cargar los datos importados en el nuevo estado
+        state.loadFromData(currentData); 
+
         engine = new SimEngine(state);
         worker = new SimWorker(state, engine, this::onTick, this::onFinished);
 
@@ -249,12 +368,12 @@ public class MainFrame extends JFrame {
             String.format(
                 "Simulacion finalizada.%n%n" +
                 "  Tiempo simulado:    %.1f min (%.1f h)%n" +
-                "  Barras llegadas:    %d%n" +
-                "  Piezas finalizadas: %d%n%n" +
+                "  Entidades Creadas:    %d%n" +
+                "  Entidades Salientes: %d%n%n" +
                 "Deseas ver el reporte completo de resultados?",
                 state.clk, state.clk/60.0,
-                state.barrasLlegadas.get(),
-                state.piezasFinales.get()),
+                state.entidadesCreadas.get(),
+                state.entidadesSalientes.get()),
             "Simulacion Completada",
             JOptionPane.YES_NO_OPTION,
             JOptionPane.QUESTION_MESSAGE);
@@ -288,11 +407,9 @@ public class MainFrame extends JFrame {
                 "Aviso", JOptionPane.WARNING_MESSAGE);
             return;
         }
-        BuildDialog dlg = new BuildDialog(this, params);
+        BuildDialog dlg = new BuildDialog(this, params, currentData);
         // Abrir en la pestaña seleccionada
-        if (dlg.getContentPane().getComponent(1) instanceof javax.swing.JTabbedPane) {
-            ((javax.swing.JTabbedPane)dlg.getContentPane().getComponent(1)).setSelectedIndex(tab);
-        }
+        dlg.setSelectedTab(tab);
         dlg.setVisible(true);
         if (dlg.saved) params = dlg.params;
     }

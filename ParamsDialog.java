@@ -16,6 +16,8 @@ import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTabbedPane;
+import javax.swing.ButtonGroup;
+import javax.swing.JRadioButton;
 import javax.swing.JTextField;
 
 /** ParamsDialog - Diálogo modal para editar todos los parámetros de simulación. */
@@ -26,15 +28,8 @@ public class ParamsDialog extends JDialog {
 
     private final SimParams working;
 
-    private JTextField fConv1, fAlm1M, fAlm1S, fAlm1C;
-    private JTextField fCortM, fCortC, fTornM, fTornS, fTornC;
-    private JTextField fConv2, fFresM, fFresC;
-    private JTextField fAlm2M, fAlm2S, fAlm2C;
-    private JTextField fPintM, fPintC;
-    private JTextField fIns1M, fIns1S, fIns1C, fIns2M, fIns2C;
-    private JTextField fEmpM, fEmpS, fEmpC, fEmbM, fEmbC;
-    private JTextField fT1, fT2, fT3, fMk1, fMk2;
-    private JTextField fArribo, fDur, fSeed, fRech;
+    private JTextField fTiempoSimul, fReplicas, fSeed;
+    private JRadioButton rbSeg, rbMin, rbHora, rbDia;
 
     public ParamsDialog(JFrame owner, SimParams params) {
         super(owner, "Parametros de Simulacion", true);
@@ -63,86 +58,57 @@ public class ParamsDialog extends JDialog {
         tabs.setBackground(SimConstants.BG_PANEL);
         tabs.setForeground(SimConstants.C_TEXT);
         tabs.setFont(SimConstants.FONT_LABEL);
-        tabs.addTab("Tiempos de Proceso", buildProcessTab());
-        tabs.addTab("Recursos",           buildResourceTab());
         tabs.addTab("General",            buildGeneralTab());
         add(tabs, BorderLayout.CENTER);
         add(buildButtons(), BorderLayout.SOUTH);
     }
 
-    private JPanel buildProcessTab() {
-        JPanel p = form();
-        GridBagConstraints c = gbc();
-        addHeader(p,c,"CONVEYOR_1 - Tiempo fijo");
-        fConv1 = row(p,c,"Tiempo (min):",       sv(working.conv1Tiempo));
-        addHeader(p,c,"ALMACEN_1 - Normal N(mu, sigma)");
-        fAlm1M = row(p,c,"Media (min):",         sv(working.alm1Media));
-        fAlm1S = row(p,c,"Desv. sigma (min):",   sv(working.alm1Sigma));
-        fAlm1C = row(p,c,"Capacidad:",           sv(working.alm1Cap));
-        addHeader(p,c,"CORTADORA - Exponencial E(mu)");
-        fCortM = row(p,c,"Media (min):",         sv(working.cortMedia));
-        fCortC = row(p,c,"Capacidad:",           sv(working.cortCap));
-        addHeader(p,c,"TORNO - Normal N(mu, sigma)");
-        fTornM = row(p,c,"Media (min):",         sv(working.tornMedia));
-        fTornS = row(p,c,"Desv. sigma (min):",   sv(working.tornSigma));
-        fTornC = row(p,c,"Capacidad:",           sv(working.tornCap));
-        addHeader(p,c,"CONVEYOR_2 - Tiempo fijo");
-        fConv2 = row(p,c,"Tiempo (min):",       sv(working.conv2Tiempo));
-        addHeader(p,c,"FRESADORA - Exponencial E(mu)");
-        fFresM = row(p,c,"Media (min):",         sv(working.fresMedia));
-        fFresC = row(p,c,"Capacidad:",           sv(working.fresCap));
-        addHeader(p,c,"ALMACEN_2 - Normal N(mu, sigma)");
-        fAlm2M = row(p,c,"Media (min):",         sv(working.alm2Media));
-        fAlm2S = row(p,c,"Desv. sigma (min):",   sv(working.alm2Sigma));
-        fAlm2C = row(p,c,"Capacidad:",           sv(working.alm2Cap));
-        addHeader(p,c,"PINTURA - Exponencial E(mu)");
-        fPintM = row(p,c,"Media (min):",         sv(working.pintMedia));
-        fPintC = row(p,c,"Capacidad:",           sv(working.pintCap));
-        addHeader(p,c,"INSPECCION_1 - Normal N(mu, sigma)");
-        fIns1M = row(p,c,"Media (min):",         sv(working.ins1Media));
-        fIns1S = row(p,c,"Desv. sigma (min):",   sv(working.ins1Sigma));
-        fIns1C = row(p,c,"Capacidad:",           sv(working.ins1Cap));
-        addHeader(p,c,"INSPECCION_2 - Exponencial E(mu)");
-        fIns2M = row(p,c,"Media (min):",         sv(working.ins2Media));
-        fIns2C = row(p,c,"Capacidad:",           sv(working.ins2Cap));
-        addHeader(p,c,"EMPAQUE - Normal N(mu, sigma)");
-        fEmpM  = row(p,c,"Media (min):",         sv(working.empMedia));
-        fEmpS  = row(p,c,"Desv. sigma (min):",   sv(working.empSigma));
-        fEmpC  = row(p,c,"Capacidad:",           sv(working.empCap));
-        addHeader(p,c,"EMBARQUE - Exponencial E(mu)");
-        fEmbM  = row(p,c,"Media (min):",         sv(working.embMedia));
-        fEmbC  = row(p,c,"Capacidad:",           sv(working.embCap));
-        return scroll(p);
-    }
 
-    private JPanel buildResourceTab() {
-        JPanel p = form();
-        GridBagConstraints c = gbc();
-        addHeader(p,c,"TRABAJADOR_1 - Cortadora a Torno");
-        fT1  = row(p,c,"Tiempo traslado (min):", sv(working.t1Traslado));
-        addHeader(p,c,"TRABAJADOR_2 - Fresadora a Almacen 2");
-        fT2  = row(p,c,"Tiempo traslado (min):", sv(working.t2Traslado));
-        addHeader(p,c,"TRABAJADOR_3 - Empaque a Embarque");
-        fT3  = row(p,c,"Tiempo traslado (min):", sv(working.t3Traslado));
-        addHeader(p,c,"MONTACARGAS - Almacen 2 a Pintura");
-        fMk1 = row(p,c,"Tiempo traslado (min):", sv(working.mkTraslado1));
-        addHeader(p,c,"MONTACARGAS - Pintura a Inspeccion 1");
-        fMk2 = row(p,c,"Tiempo traslado (min):", sv(working.mkTraslado2));
-        return scroll(p);
-    }
 
     private JPanel buildGeneralTab() {
         JPanel p = form();
         GridBagConstraints c = gbc();
-        addHeader(p,c,"LLEGADAS DE BARRAS");
-        fArribo = row(p,c,"Frecuencia llegada (min):", sv(working.arriboFrecuencia));
-        addHeader(p,c,"DURACION Y REPRODUCIBILIDAD");
-        fDur  = row(p,c,"Duracion simulacion (HORAS):", String.valueOf(working.duracion/60.0));
-        fSeed = row(p,c,"Semilla aleatoria:",          sv(working.semilla));
-        addHeader(p,c,"INSPECCION 1 - Probabilidad de rechazo");
-        fRech = row(p,c,"Prob. envio a Insp. 2 (0-1):", sv(working.probRechazo));
-        note(p,c,"  20% de piezas van a Inspeccion 2 por defecto");
-        note(p,c,"  80% va directamente a Empaque");
+        
+        addHeader(p,c,"TIEMPO DE CORRIDA");
+        fTiempoSimul = row(p,c,"Tiempo Simul.*:", working.tiempoSimul);
+        c.gridy++; c.gridx=0; c.gridwidth=2;
+        JLabel lNote = new JLabel("*A menos que se especifique lo contrario, la unidad de tiempo por defecto HORA.");
+        lNote.setFont(new Font("Arial", Font.ITALIC, 10));
+        lNote.setForeground(SimConstants.C_MUTED);
+        p.add(lNote, c);
+        c.gridwidth=1;
+        
+        addHeader(p,c,"PRECISIÓN DEL RELOJ");
+        c.gridy++; c.gridx=0; c.gridwidth=2;
+        JPanel pPrec = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        pPrec.setBackground(SimConstants.BG_PANEL);
+        rbSeg = new JRadioButton("Segundo");
+        rbMin = new JRadioButton("Minuto");
+        rbHora = new JRadioButton("Hora");
+        rbDia = new JRadioButton("Día");
+        rbSeg.setBackground(SimConstants.BG_PANEL); rbSeg.setForeground(SimConstants.C_TEXT);
+        rbMin.setBackground(SimConstants.BG_PANEL); rbMin.setForeground(SimConstants.C_TEXT);
+        rbHora.setBackground(SimConstants.BG_PANEL); rbHora.setForeground(SimConstants.C_TEXT);
+        rbDia.setBackground(SimConstants.BG_PANEL); rbDia.setForeground(SimConstants.C_TEXT);
+        
+        ButtonGroup bg = new ButtonGroup();
+        bg.add(rbSeg); bg.add(rbMin); bg.add(rbHora); bg.add(rbDia);
+        pPrec.add(rbSeg); pPrec.add(rbMin); pPrec.add(rbHora); pPrec.add(rbDia);
+        
+        if (working.precisionReloj.equals("Segundo")) rbSeg.setSelected(true);
+        else if (working.precisionReloj.equals("Hora")) rbHora.setSelected(true);
+        else if (working.precisionReloj.equals("Día")) rbDia.setSelected(true);
+        else rbMin.setSelected(true); // Default
+        
+        p.add(pPrec, c);
+        c.gridwidth=1;
+        
+        addHeader(p,c,"REPORTE DE RESULTADOS");
+        fReplicas = row(p,c,"Número de Réplicas:", working.replicas);
+        
+        addHeader(p,c,"GENERAL");
+        fSeed = row(p,c,"Semilla aleatoria:", sv(working.semilla));
+        
         return scroll(p);
     }
 
@@ -158,30 +124,37 @@ public class ParamsDialog extends JDialog {
 
     private boolean apply() {
         try {
-            working.conv1Tiempo  = dbl(fConv1);
-            working.alm1Media    = dbl(fAlm1M); working.alm1Sigma  = dbl(fAlm1S); working.alm1Cap  = itg(fAlm1C);
-            working.cortMedia    = dbl(fCortM); working.cortCap    = itg(fCortC);
-            working.tornMedia    = dbl(fTornM); working.tornSigma  = dbl(fTornS); working.tornCap  = itg(fTornC);
-            working.conv2Tiempo  = dbl(fConv2);
-            working.fresMedia    = dbl(fFresM); working.fresCap    = itg(fFresC);
-            working.alm2Media    = dbl(fAlm2M); working.alm2Sigma  = dbl(fAlm2S); working.alm2Cap  = itg(fAlm2C);
-            working.pintMedia    = dbl(fPintM); working.pintCap    = itg(fPintC);
-            working.ins1Media    = dbl(fIns1M); working.ins1Sigma  = dbl(fIns1S); working.ins1Cap  = itg(fIns1C);
-            working.ins2Media    = dbl(fIns2M); working.ins2Cap    = itg(fIns2C);
-            working.empMedia     = dbl(fEmpM);  working.empSigma   = dbl(fEmpS);  working.empCap   = itg(fEmpC);
-            working.embMedia     = dbl(fEmbM);  working.embCap     = itg(fEmbC);
-            working.t1Traslado   = dbl(fT1);    working.t2Traslado = dbl(fT2);
-            working.t3Traslado   = dbl(fT3);    working.mkTraslado1= dbl(fMk1);   working.mkTraslado2= dbl(fMk2);
-            working.arriboFrecuencia = dbl(fArribo);
-            working.duracion     = dbl(fDur) * 60.0;  // entrada en horas → convertir a minutos
-            working.semilla      = Long.parseLong(fSeed.getText().trim());
-            working.probRechazo  = dbl(fRech);
-            if (working.probRechazo < 0 || working.probRechazo > 1)
-                throw new NumberFormatException("Probabilidad debe ser 0-1");
+            String ts = fTiempoSimul.getText().trim().toUpperCase();
+            working.tiempoSimul = fTiempoSimul.getText().trim();
+            if (ts.isEmpty()) {
+                working.duracion = 0;
+            } else {
+                double val = 0;
+                String[] parts = ts.split(" ");
+                val = Double.parseDouble(parts[0]);
+                if (parts.length > 1) {
+                    String unit = parts[1];
+                    if (unit.startsWith("DAY") || unit.startsWith("DIA")) val *= (24 * 60);
+                    else if (unit.startsWith("HR") || unit.startsWith("HORA")) val *= 60;
+                    else if (unit.startsWith("SEC") || unit.startsWith("SEG")) val /= 60.0;
+                } else {
+                    val *= 60; // default HORA
+                }
+                working.duracion = val;
+            }
+            
+            working.semilla = Long.parseLong(fSeed.getText().trim());
+            working.replicas = fReplicas.getText().trim();
+            
+            if (rbSeg.isSelected()) working.precisionReloj = "Segundo";
+            else if (rbHora.isSelected()) working.precisionReloj = "Hora";
+            else if (rbDia.isSelected()) working.precisionReloj = "Día";
+            else working.precisionReloj = "Minuto";
+            
             result = working;
             return true;
         } catch (NumberFormatException ex) {
-            JOptionPane.showMessageDialog(this, "Valor invalido: " + ex.getMessage(),
+            JOptionPane.showMessageDialog(this, "Valor inválido. Verifica los números.",
                 "Error", JOptionPane.ERROR_MESSAGE);
             return false;
         }
@@ -189,20 +162,10 @@ public class ParamsDialog extends JDialog {
 
     private void loadDefaults() {
         SimParams d = new SimParams();
-        fConv1.setText(sv(d.conv1Tiempo)); fAlm1M.setText(sv(d.alm1Media)); fAlm1S.setText(sv(d.alm1Sigma)); fAlm1C.setText(sv(d.alm1Cap));
-        fCortM.setText(sv(d.cortMedia));   fCortC.setText(sv(d.cortCap));
-        fTornM.setText(sv(d.tornMedia));   fTornS.setText(sv(d.tornSigma)); fTornC.setText(sv(d.tornCap));
-        fConv2.setText(sv(d.conv2Tiempo)); fFresM.setText(sv(d.fresMedia)); fFresC.setText(sv(d.fresCap));
-        fAlm2M.setText(sv(d.alm2Media));  fAlm2S.setText(sv(d.alm2Sigma)); fAlm2C.setText(sv(d.alm2Cap));
-        fPintM.setText(sv(d.pintMedia));   fPintC.setText(sv(d.pintCap));
-        fIns1M.setText(sv(d.ins1Media));  fIns1S.setText(sv(d.ins1Sigma)); fIns1C.setText(sv(d.ins1Cap));
-        fIns2M.setText(sv(d.ins2Media));  fIns2C.setText(sv(d.ins2Cap));
-        fEmpM .setText(sv(d.empMedia));   fEmpS .setText(sv(d.empSigma));  fEmpC .setText(sv(d.empCap));
-        fEmbM .setText(sv(d.embMedia));   fEmbC .setText(sv(d.embCap));
-        fT1   .setText(sv(d.t1Traslado)); fT2   .setText(sv(d.t2Traslado));
-        fT3   .setText(sv(d.t3Traslado)); fMk1  .setText(sv(d.mkTraslado1)); fMk2.setText(sv(d.mkTraslado2));
-        fArribo.setText(sv(d.arriboFrecuencia)); fDur.setText(sv(d.duracion / 60.0));
-        fSeed  .setText(sv(d.semilla));   fRech.setText(sv(d.probRechazo));
+        fTiempoSimul.setText(d.tiempoSimul);
+        fReplicas.setText(d.replicas);
+        fSeed.setText(sv(d.semilla));
+        rbMin.setSelected(true);
     }
 
     // ── Helpers de UI ─────────────────────────────────────────────────────

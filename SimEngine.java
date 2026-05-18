@@ -10,24 +10,30 @@ public class SimEngine {
     private final Rng rng;
 
     public SimEngine(SimState state) {
-        this.s   = state;
-        this.p   = state.params;
+        this.s = state;
+        this.p = state.params;
         this.rng = state.rng;
     }
 
     public void init() {
         s.reset();
         s.running = true;
-        schedule(0, this::arrival);
+        if (s.currentData != null) {
+            for (ProModelData.ArrDef arr : s.currentData.arrivals) {
+                double firstTime = parseTime(arr.firstTime);
+                schedule(firstTime, () -> doArrival(arr, 1));
+            }
+        }
     }
 
     public boolean stepUntil(double until) {
         while (!s.fel.isEmpty() && s.fel.peek().time <= until) {
-            if (s.paused || !s.running) return s.running;
+            if (s.paused || !s.running)
+                return s.running;
             Ev ev = s.fel.poll();
             s.clk = ev.time;
             if (s.clk > p.duracion) {
-                s.running  = false;
+                s.running = false;
                 s.finished = true;
                 return false;
             }
@@ -36,220 +42,254 @@ public class SimEngine {
         return s.running;
     }
 
-    // ── Helper: pixel-center de una locacion ──────────────────────────────
-    private float[] locCenter(String name) {
-        Loc l = loc(name);
-        if (l == null) return new float[]{0, 0};
-        return new float[]{l.x + l.w / 2f, l.y + l.h / 2f};
+    private double parseTime(String expr) {
+        if (expr == null || expr.isEmpty())
+            return 0;
+        expr = expr.toUpperCase().replace("MIN", "").trim();
+        expr = expr.replace("WAIT", "").replace("MOVE FOR", "").trim();
+
+        if (expr.startsWith("E(") || expr.startsWith("EXP(")) {
+            try {
+                int start = expr.indexOf('(');
+                int end = expr.indexOf(')');
+                double mean = Double.parseDouble(expr.substring(start + 1, end).trim());
+                return rng.exp(mean);
+            } catch (Exception e) {
+            }
+        } else if (expr.startsWith("N(") || expr.startsWith("NORM(")) {
+            try {
+                int start = expr.indexOf('(');
+                int end = expr.indexOf(')');
+                String[] parts = expr.substring(start + 1, end).split(",");
+                double mean = Double.parseDouble(parts[0].trim());
+                double std = Double.parseDouble(parts[1].trim());
+                return rng.norm(mean, std);
+            } catch (Exception e) {
+            }
+        } else if (expr.startsWith("U(") || expr.startsWith("UNIFORM(")) {
+            try {
+                int start = expr.indexOf('(');
+                int end = expr.indexOf(')');
+                String[] parts = expr.substring(start + 1, end).split(",");
+                double mean = Double.parseDouble(parts[0].trim());
+                double halfRange = Double.parseDouble(parts[1].trim());
+                return rng.uniform(mean, halfRange);
+            } catch (Exception e) {
+            }
+        } else if (expr.startsWith("T(") || expr.startsWith("TRI(")) {
+            try {
+                int start = expr.indexOf('(');
+                int end = expr.indexOf(')');
+                String[] parts = expr.substring(start + 1, end).split(",");
+                double min = Double.parseDouble(parts[0].trim());
+                double mode = Double.parseDouble(parts[1].trim());
+                double max = Double.parseDouble(parts[2].trim());
+                return rng.triangular(min, mode, max);
+            } catch (Exception e) {
+            }
+        } else {
+            try {
+                return Double.parseDouble(expr);
+            } catch (Exception e) {
+            }
+        }
+        return 0;
     }
 
-    // ── Llegada de BARRA_ACERO ────────────────────────────────────────────
-    private void arrival() {
-        s.barrasLlegadas.incrementAndGet();
-        s.enSistema++;
-        Entity e = new Entity(EType.BARRA, s.clk);
-        e.curLoc = "CONVEYOR_1";
-        loc("CONVEYOR_1").enter(s.clk);
-        schedule(s.clk + p.conv1Tiempo,      () -> doneConveyor1(e));
-        schedule(s.clk + p.arriboFrecuencia, this::arrival);
-    }
+    private void doArrival(ProModelData.ArrDef arr, int occurrence) {
+        if (!s.running)
+            return;
 
-    // ── CONVEYOR_1 → ALMACEN_1 ───────────────────────────────────────────
-    private void doneConveyor1(Entity e) {
-        loc("CONVEYOR_1").exit(s.clk);
-        e.curLoc = "ALMACEN_1";
-        tryEnter(e, "ALMACEN_1");
-    }
+        int qty = (int) Math.max(1, parseTime(arr.qty));
+        int maxOcc = 1;
+        try {
+            if (!arr.occurrences.toUpperCase().contains("INF"))
+                maxOcc = Integer.parseInt(arr.occurrences);
+            else
+                maxOcc = Integer.MAX_VALUE;
+        } catch (Exception e) {
+        }
 
-    // ── ALMACEN_1 → CORTADORA (T1 lleva la pieza) ────────────────────────
-    private void doneAlmacen1(Entity e) {
-        loc("ALMACEN_1").exit(s.clk);
-        loc("ALMACEN_1").drain();
-        float[] tgt = locCenter("CORTADORA");
-        s.agentGoTo("T1", tgt[0], tgt[1]);
-        e.curLoc = "transit→CORTADORA";
-        schedule(s.clk + p.t1Traslado, () -> {
-            s.agentReturnHome("T1");
-            arrivedAt(e, "CORTADORA");
-        });
-    }
+        String resolvedLoc = resolveDest(arr.location);
 
-    // ── CORTADORA → TORNO (T1 lleva las 2 piezas) ────────────────────────
-    private void doneCortadora(Entity barra) {
-        loc("CORTADORA").exit(s.clk);
-        loc("CORTADORA").drain();
-        s.enSistema--;
+        for (int i = 0; i < qty; i++) {
+            Entity e = new Entity(arr.entity, s.clk);
+            for (ProModelData.EntDef ed : s.currentData.entities) {
+                if (ed.name.equalsIgnoreCase(e.typeName)) {
+                    e.iconPath = ed.iconPath;
+                    break;
+                }
+            }
+            e.curLoc = resolvedLoc;
 
-        for (int i = 0; i < 2; i++) {
-            Entity pieza = new Entity(EType.PIEZA_CORTADA, s.clk);
+            Loc loc = s.locs.get(e.curLoc);
+            if (loc != null) {
+                e.curX = loc.x + loc.w / 2;
+                e.curY = loc.y + loc.h / 2;
+            }
+            s.activeEntities.add(e);
             s.enSistema++;
-            final Entity fp = pieza;
-            float[] tgt = locCenter("TORNO");
-            res("T1").request(s.clk, p.t1Traslado, () -> {
-                s.agentGoTo("T1", tgt[0], tgt[1]);
-                fp.curLoc = "transit→TORNO";
-                schedule(s.clk + p.t1Traslado, () -> {
-                    res("T1").release(s.clk);
-                    s.agentReturnHome("T1");
-                    arrivedAt(fp, "TORNO");
-                });
-            });
+
+            tryEnter(e);
+        }
+
+        if (occurrence < maxOcc) {
+            double nextArrival = s.clk + parseTime(arr.frequency);
+            schedule(nextArrival, () -> doArrival(arr, occurrence + 1));
         }
     }
 
-    // ── TORNO → CONVEYOR_2 ────────────────────────────────────────────────
-    private void doneTorno(Entity e) {
-        e.type = EType.PIEZA_TORNEADA;
-        loc("TORNO").exit(s.clk);
-        loc("TORNO").drain();
-        e.curLoc = "transit→CONVEYOR_2";
-        schedule(s.clk + p.t1Traslado, () -> arrivedAt(e, "CONVEYOR_2"));
-    }
+    private void tryEnter(Entity e) {
+        Loc l = s.loc(e.curLoc);
+        if (l == null) {
+            finishEntity(e);
+            return;
+        }
 
-    // ── CONVEYOR_2 → FRESADORA ────────────────────────────────────────────
-    private void doneConveyor2(Entity e) {
-        loc("CONVEYOR_2").exit(s.clk);
-        e.curLoc = "transit→FRESADORA";
-        schedule(s.clk + p.conv2Tiempo, () -> arrivedAt(e, "FRESADORA"));
-    }
-
-    // ── FRESADORA → ALMACEN_2 (T2 lleva la pieza) ─────────────────────────
-    private void doneFresadora(Entity e) {
-        e.type = EType.PIEZA_FRESADA;
-        loc("FRESADORA").exit(s.clk);
-        loc("FRESADORA").drain();
-        float[] tgt = locCenter("ALMACEN_2");
-        res("T2").request(s.clk, p.t2Traslado, () -> {
-            s.agentGoTo("T2", tgt[0], tgt[1]);
-            e.curLoc = "transit→ALMACEN_2";
-            schedule(s.clk + p.t2Traslado, () -> {
-                res("T2").release(s.clk);
-                s.agentReturnHome("T2");
-                arrivedAt(e, "ALMACEN_2");
-            });
-        });
-    }
-
-    // ── ALMACEN_2 → PINTURA (MONTACARGAS: va DESDE almacen HASTA pintura) ──────
-    private void doneAlmacen2(Entity e) {
-        loc("ALMACEN_2").exit(s.clk);
-        loc("ALMACEN_2").drain();
-        float[] from = locCenter("ALMACEN_2");
-        float[] tgt  = locCenter("PINTURA");
-        res("MK").request(s.clk, p.mkTraslado1, () -> {
-            // MK parte desde ALMACEN_2 hasta PINTURA
-            s.agentGoFrom("MK", from[0], from[1], tgt[0], tgt[1]);
-            e.curLoc = "transit→PINTURA";
-            schedule(s.clk + p.mkTraslado1, () -> {
-                res("MK").release(s.clk);
-                s.agentReturnHome("MK");
-                arrivedAt(e, "PINTURA");
-            });
-        });
-    }
-
-    // ── PINTURA → INSPECCION_1 (MONTACARGAS: va DESDE pintura HASTA inspeccion) ──
-    private void donePintura(Entity e) {
-        e.type = EType.PIEZA_PINTADA;
-        loc("PINTURA").exit(s.clk);
-        loc("PINTURA").drain();
-        float[] from = locCenter("PINTURA");
-        float[] tgt  = locCenter("INSPECCION_1");
-        res("MK").request(s.clk, p.mkTraslado2, () -> {
-            // MK parte desde PINTURA hasta INSPECCION_1
-            s.agentGoFrom("MK", from[0], from[1], tgt[0], tgt[1]);
-            e.curLoc = "transit→INSPECCION_1";
-            schedule(s.clk + p.mkTraslado2, () -> {
-                res("MK").release(s.clk);
-                s.agentReturnHome("MK");
-                arrivedAt(e, "INSPECCION_1");
-            });
-        });
-    }
-
-    // ── INSPECCION_1 → 80% EMPAQUE | 20% INSPECCION_2 ────────────────────
-    private void doneInspeccion1(Entity e) {
-        loc("INSPECCION_1").exit(s.clk);
-        loc("INSPECCION_1").drain();
-        if (rng.prob(p.probRechazo)) {
-            e.curLoc = "transit→INSPECCION_2";
-            schedule(s.clk + 4.0, () -> arrivedAt(e, "INSPECCION_2"));
+        if (!l.full()) {
+            l.enter(s.clk);
+            doOperation(e);
         } else {
-            tryEnter(e, "EMPAQUE");
+            l.waiting.offer(() -> {
+                l.enter(s.clk);
+                doOperation(e);
+            });
         }
     }
 
-    // ── INSPECCION_2 → EMPAQUE ────────────────────────────────────────────
-    private void doneInspeccion2(Entity e) {
-        loc("INSPECCION_2").exit(s.clk);
-        loc("INSPECCION_2").drain();
-        e.curLoc = "transit→EMPAQUE";
-        schedule(s.clk + 3.0, () -> arrivedAt(e, "EMPAQUE"));
+    private void doOperation(Entity e) {
+        ProModelData.ProcDef proc = findOperation(e.typeName, e.curLoc);
+        double waitTime = (proc != null) ? parseTime(proc.operation) : 0;
+
+        if (waitTime > 0) {
+            schedule(s.clk + waitTime, () -> doRouting(e));
+        } else {
+            doRouting(e);
+        }
     }
 
-    // ── EMPAQUE → EMBARQUE (T3 lleva la pieza) ────────────────────────────
-    private void doneEmpaque(Entity e) {
-        e.type = EType.PIEZA_FINAL;
-        loc("EMPAQUE").exit(s.clk);
-        loc("EMPAQUE").drain();
-        float[] tgt = locCenter("EMBARQUE");
-        res("T3").request(s.clk, p.t3Traslado, () -> {
-            s.agentGoTo("T3", tgt[0], tgt[1]);
-            e.curLoc = "transit→EMBARQUE";
-            schedule(s.clk + p.t3Traslado, () -> {
-                res("T3").release(s.clk);
-                s.agentReturnHome("T3");
-                arrivedAt(e, "EMBARQUE");
+    private void doRouting(Entity e) {
+        String oldLoc = e.curLoc;
+        ProModelData.ProcDef route = findRoute(e.typeName, e.curLoc);
+
+        if (route == null || route.destination == null || route.destination.equalsIgnoreCase("EXIT")) {
+            freeLoc(oldLoc);
+            finishEntity(e);
+            return;
+        }
+
+        if (route.output != null && !route.output.isEmpty()) {
+            e.typeName = route.output;
+            for (ProModelData.EntDef ed : s.currentData.entities) {
+                if (ed.name.equalsIgnoreCase(e.typeName)) {
+                    e.iconPath = ed.iconPath;
+                    break;
+                }
+            }
+        }
+
+        e.curLoc = resolveDest(route.destination);
+        double travelTime = parseTime(route.moveLogic);
+
+        if (travelTime > 0) {
+            Loc destLoc = s.locs.get(e.curLoc);
+            if (destLoc != null) {
+                e.targetX = destLoc.x + destLoc.w / 2;
+                e.targetY = destLoc.y + destLoc.h / 2;
+                e.moveStartTime = s.clk;
+                e.moveEndTime = s.clk + travelTime;
+                e.moving = true;
+            }
+            freeLoc(oldLoc); // Libera mientras viaja
+
+            schedule(s.clk + travelTime, () -> {
+                e.moving = false;
+                e.curX = e.targetX;
+                e.curY = e.targetY;
+                tryEnter(e);
             });
-        });
+        } else {
+            Loc destLoc = s.locs.get(e.curLoc);
+            if (destLoc != null) {
+                e.curX = destLoc.x + destLoc.w / 2;
+                e.curY = destLoc.y + destLoc.h / 2;
+            }
+            freeLoc(oldLoc);
+            tryEnter(e);
+        }
     }
 
-    // ── EMBARQUE → EXIT ───────────────────────────────────────────────────
-    private void doneEmbarque(Entity e) {
-        loc("EMBARQUE").exit(s.clk);
-        loc("EMBARQUE").drain();
-        s.piezasFinales.incrementAndGet();
-        s.embarqueTotales.incrementAndGet();   // ← NUEVO: contador llegados a EMBARQUE
+    private void freeLoc(String locName) {
+        Loc l = s.loc(locName);
+        if (l != null) {
+            l.exit(s.clk);
+            l.drain();
+        }
+    }
+
+    private void finishEntity(Entity e) {
+        s.activeEntities.remove(e);
         s.enSistema--;
-        s.histThroughput.add(new double[]{s.clk, s.piezasFinales.get()});
+        s.entidadesSalientes.incrementAndGet();
+        s.histThroughput.add(new double[] { s.clk, s.entidadesSalientes.get() });
     }
 
-    // ── Ruteo generico ─────────────────────────────────────────────────────
-    private void tryEnter(Entity e, String destName) {
-        Loc D = loc(destName);
-        if (!D.full()) {
-            D.enter(s.clk);
-            e.curLoc = destName;
-            schedule(s.clk + p.serviceTime(destName, rng), () -> done(e, destName));
-        } else {
-            D.waiting.offer(() -> {
-                D.enter(s.clk);
-                e.curLoc = destName;
-                schedule(s.clk + p.serviceTime(destName, rng), () -> done(e, destName));
-            });
+    private ProModelData.ProcDef findOperation(String entityName, String locName) {
+        String baseLocName = locName;
+        if (baseLocName.matches(".*\\.\\d+$"))
+            baseLocName = baseLocName.substring(0, baseLocName.lastIndexOf('.'));
+
+        for (ProModelData.ProcDef p : s.routes) {
+            if (p.entity.equalsIgnoreCase(entityName) && p.location.equalsIgnoreCase(baseLocName) && p.operation != null
+                    && !p.operation.trim().isEmpty()) {
+                return p;
+            }
         }
+        return null;
     }
 
-    private void arrivedAt(Entity e, String destName) { tryEnter(e, destName); }
+    private ProModelData.ProcDef findRoute(String entityName, String locName) {
+        String baseLocName = locName;
+        if (baseLocName.matches(".*\\.\\d+$"))
+            baseLocName = baseLocName.substring(0, baseLocName.lastIndexOf('.'));
 
-    private void done(Entity e, String locName) {
-        switch (locName) {
-            case "CONVEYOR_1":   doneConveyor1(e);   break;
-            case "ALMACEN_1":    doneAlmacen1(e);    break;
-            case "CORTADORA":    doneCortadora(e);   break;
-            case "TORNO":        doneTorno(e);        break;
-            case "CONVEYOR_2":   doneConveyor2(e);   break;
-            case "FRESADORA":    doneFresadora(e);   break;
-            case "ALMACEN_2":    doneAlmacen2(e);    break;
-            case "PINTURA":      donePintura(e);     break;
-            case "INSPECCION_1": doneInspeccion1(e); break;
-            case "INSPECCION_2": doneInspeccion2(e); break;
-            case "EMPAQUE":      doneEmpaque(e);     break;
-            case "EMBARQUE":     doneEmbarque(e);    break;
+        for (ProModelData.ProcDef p : s.routes) {
+            if (p.entity.equalsIgnoreCase(entityName) && p.location.equalsIgnoreCase(baseLocName)
+                    && p.destination != null && !p.destination.trim().isEmpty()) {
+                return p;
+            }
         }
+        for (ProModelData.ProcDef p : s.routes) {
+            if (p.location.equalsIgnoreCase(baseLocName) && p.destination != null && !p.destination.trim().isEmpty())
+                return p;
+        }
+        return null;
     }
 
-    private void  schedule(double t, Runnable a) { s.schedule(t, a); }
-    private Loc   loc(String n) { return s.loc(n); }
-    private Res   res(String n) { return s.res(n); }
+    private String resolveDest(String destName) {
+        if (s.locs.containsKey(destName))
+            return destName;
+        java.util.List<String> units = new java.util.ArrayList<>();
+        for (String k : s.locs.keySet()) {
+            if (k.startsWith(destName + "."))
+                units.add(k);
+        }
+        if (units.isEmpty())
+            return destName;
+
+        String best = units.get(0);
+        int minL = Integer.MAX_VALUE;
+        for (String u : units) {
+            Loc l = s.locs.get(u);
+            if (l.cnt + l.waiting.size() < minL) {
+                minL = l.cnt + l.waiting.size();
+                best = u;
+            }
+        }
+        return best;
+    }
+
+    private void schedule(double t, Runnable a) {
+        s.schedule(t, a);
+    }
 }

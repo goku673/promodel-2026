@@ -1,0 +1,75 @@
+********************************************************************************
+*                        Listado del modelo formateado:                        *
+********************************************************************************
+
+  Unidades de Tiempo:                Minutos
+  Unidades de Distancia:             Pies
+
+
+********************************************************************************
+*                                  Locaciones                                  *
+********************************************************************************
+
+  Nombre            Cap      Unidades Estadist         Reglas                Costos      
+  ----------------- -------- -------- ---------------- --------------------- ------------
+#
+#Almacenamiento ilimitado de entrada
+  RECEPCION         INFINITE 1        Series de tiempo M s Tiempo, FIFO,                 
+  LAVADORA          5        1        Series de tiempo M s Tiempo, ,                     
+
+
+********************************************************************************
+*                                  Entidades                                   *
+********************************************************************************
+
+  Nombre     Velocidad (Ppm) Estadist         Costos      
+  ---------- ------------ ---------------- ------------
+  PIEZA      150          Series de tiempo             
+
+
+********************************************************************************
+*                                   Recursos                                   *
+********************************************************************************
+
+                            Rec     Ent                                              
+  Nombre   Unidades Estad st   Buscar  Buscar     Ruta       Movimiento     Costos      
+  -------- ----- ---------- ------- ---------- ---------- -------------- ------------
+  OPERARIO 2     Por Unidad Ninguna M s Tiempo            Vac o: 150 Ppm             
+                                                          Lleno: 150 Ppm             
+
+
+********************************************************************************
+*                                Procesamiento                                 *
+********************************************************************************
+
+                                    Proceso                   Enrutamiento
+
+ Entidad  Locaci n        Operaci n            Blk  Salida   Destino         Regla    L gica de Movimiento
+ -------- --------------- ------------------   ---- -------- --------------- -------  ------------
+ PIEZA    RECEPCION                            1    PIEZA    LAVADORA        FIRST 1  Move For E(3) min
+                                                                                      
+ PIEZA    LAVADORA        Wait N(10, 2) min
+                                               1    PIEZA    EXIT            FIRST 1  Move For E(2) min
+                                                                                      
+ PIEZA    MESA_INSPECCION GET OPERARIO
+                          WAIT E(2) MIN
+                          FREE OPERARIO
+                                               1    PIEZA    EXIT            FIRST 1  
+
+
+********************************************************************************
+*                                   Arribos                                    *
+********************************************************************************
+
+  Entidad  Locaci n  Cant. por Arribo Primera Vez Ocurrencias Frecuencia L gica
+  -------- --------- ---------------- ----------- ----------- ---------- ------------
+  PIEZA    RECEPCION 1                0           INF         E(2) min   
+
+
+********************************************************************************
+*                              Variables (global)                              *
+********************************************************************************
+
+  ID           Tipo         Valor Inicial Estadist        
+  ------------ ------------ ------------- ----------------
+  TOTAL_PIEZAS Integer      0             Series de tiempo
