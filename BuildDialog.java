@@ -4,11 +4,19 @@ import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
+import java.awt.Image;
 import java.awt.event.ActionListener;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
+import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 
 import javax.swing.BorderFactory;
+import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JDialog;
+import javax.swing.JFileChooser;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
@@ -52,6 +60,7 @@ import javax.swing.table.JTableHeader;
 public class BuildDialog extends JDialog {
 
     public SimParams params;
+    public ProModelData currentData;
     public boolean saved = false;
 
 <<<<<<< Updated upstream
@@ -124,7 +133,7 @@ public class BuildDialog extends JDialog {
 <<<<<<< Updated upstream
         tabs.addTab("Locaciones",       buildLocTab());
         tabs.addTab("Entidades",        buildEntTab());
-        tabs.addTab("Redes de Ruta",    buildRutasTab());
+        tabs.addTab("Redes de Ruta",    buildRutTab());
         tabs.addTab("Recursos",         buildResTab());
         tabs.addTab("Procesamiento",    buildProcTab());
         tabs.addTab("Arribos",          buildArriboTab());
@@ -145,23 +154,23 @@ public class BuildDialog extends JDialog {
 <<<<<<< Updated upstream
     // ── Tab Locaciones ────────────────────────────────────────────────────
     private JPanel buildLocTab() {
-        String[] cols = {"Nombre","Capacidad","Tipo","Unidades","Regla","Estadist."};
-        Object[][] data = {
-            {"CONVEYOR_1",  "INFINITE", "CONVEYOR",   "1","FIFO","Series de tiempo"},
-            {"ALMACEN_1",   params.alm1Cap, "ALMACEN","1","Mas Tiempo","Series de tiempo"},
-            {"CORTADORA",   params.cortCap, "MAQUINA", "1","Mas Tiempo","Series de tiempo"},
-            {"TORNO",       params.tornCap, "MAQUINA", "1","Mas Tiempo","Series de tiempo"},
-            {"CONVEYOR_2",  "INFINITE", "CONVEYOR",   "1","FIFO","Series de tiempo"},
-            {"FRESADORA",   params.fresCap, "MAQUINA", "1","Mas Tiempo","Series de tiempo"},
-            {"ALMACEN_2",   params.alm2Cap, "ALMACEN", "1","Mas Tiempo","Series de tiempo"},
-            {"PINTURA",     params.pintCap, "MAQUINA", "1","Mas Tiempo","Series de tiempo"},
-            {"INSPECCION_1",params.ins1Cap, "INSPECCION","1","Mas Tiempo","Series de tiempo"},
-            {"INSPECCION_2",params.ins2Cap, "INSPECCION","1","Mas Tiempo","Series de tiempo"},
-            {"EMPAQUE",     params.empCap,  "EMPAQUE",  "1","Mas Tiempo","Series de tiempo"},
-            {"EMBARQUE",    params.embCap,  "EMBARQUE", "1","Mas Tiempo","Series de tiempo"},
-        };
+        String[] cols = {"Nombre","Capacidad","Unidades","Mostrar Contador","Tipo Contador","Mostrar Medidor","Estadist.","Reglas"};
+        Object[][] data = new Object[0][0];
+        
+        if (currentData != null) {
+            data = new Object[currentData.locations.size()][8];
+            for (int i = 0; i < currentData.locations.size(); i++) {
+                ProModelData.LocDef l = currentData.locations.get(i);
+                data[i] = new Object[]{l.name, l.cap, l.units, l.showCounter, l.counterType, l.showGauge, l.stats, l.rules};
+            }
+        }
+        
         tmLoc = new DefaultTableModel(data, cols) {
-            public boolean isCellEditable(int r, int c) { return c == 1; } // solo Cap editable
+            public boolean isCellEditable(int r, int c) { return c == 1 || c == 3 || c == 4 || c == 5; }
+            public Class<?> getColumnClass(int columnIndex) {
+                if (columnIndex == 3 || columnIndex == 5) return Boolean.class;
+                return String.class;
+            }
         };
         return tablePanel(tmLoc,
             "Capacidad: edita la columna 'Capacidad'. INFINITE = sin limite.",
@@ -283,38 +292,104 @@ public class BuildDialog extends JDialog {
         DefaultTableModel tm = new DefaultTableModel(data, cols) {
             public boolean isCellEditable(int r, int c) { return false; }
         };
-        return tablePanel(tm, "Entidades del sistema (solo lectura — definidas por el proceso).",
-            new int[]{160,120,200});
+        JPanel p = tablePanel(tmEnt, "Doble clic en la celda 'Icono' para cargar o asignar una imagen (se guardará en la carpeta public).", new int[]{60, 160,120,200, 100});
+        
+        // El tablePanel devuelve un JPanel con el JScrollPane en el centro
+        JScrollPane sp = (JScrollPane) p.getComponent(0);
+        JTable table = (JTable) sp.getViewport().getView();
+        table.setRowHeight(40); // Más altura para mostrar el icono
+        
+        // Custom Renderer para la columna del icono
+        table.getColumnModel().getColumn(0).setCellRenderer(new DefaultTableCellRenderer() {
+            @Override
+            public Component getTableCellRendererComponent(JTable t, Object v, boolean sel, boolean f, int r, int c) {
+                super.getTableCellRendererComponent(t, "", sel, f, r, c);
+                setOpaque(true);
+                setBackground(sel ? SimConstants.BG_CARD : (r % 2 == 0 ? Color.WHITE : new Color(245, 245, 245)));
+                setBorder(BorderFactory.createEmptyBorder(2, 6, 2, 4));
+                setHorizontalAlignment(JLabel.CENTER);
+                
+                if (v != null && !v.toString().isEmpty()) {
+                    try {
+                        ImageIcon icon = new ImageIcon(new ImageIcon(v.toString()).getImage().getScaledInstance(36, 36, Image.SCALE_SMOOTH));
+                        setIcon(icon);
+                        setText("");
+                    } catch (Exception e) { 
+                        setIcon(null); 
+                        setText("?"); 
+                    }
+                } else {
+                    setIcon(null);
+                    setText("Doble clic");
+                    setFont(SimConstants.FONT_SMALL);
+                }
+                return this;
+            }
+        });
+        
+        // Click Listener para abrir el selector de archivos
+        table.addMouseListener(new MouseAdapter() {
+            public void mouseClicked(MouseEvent e) {
+                if (e.getClickCount() == 2) {
+                    int r = table.rowAtPoint(e.getPoint());
+                    int c = table.columnAtPoint(e.getPoint());
+                    if (c == 0 && currentData != null) {
+                        File publicDir = new File("public");
+                        if (!publicDir.exists()) publicDir.mkdirs();
+                        
+                        JFileChooser fc = new JFileChooser(publicDir);
+                        fc.setDialogTitle("Seleccionar imagen para la entidad");
+                        if (fc.showOpenDialog(BuildDialog.this) == JFileChooser.APPROVE_OPTION) {
+                            try {
+                                File src = fc.getSelectedFile();
+                                String name = src.getName();
+                                name = name.replaceAll("[^a-zA-Z0-9_\\.-]", "_");
+                                File dest = new File(publicDir, name);
+                                
+                                if (!src.getAbsolutePath().equals(dest.getAbsolutePath())) {
+                                    Files.copy(src.toPath(), dest.toPath(), StandardCopyOption.REPLACE_EXISTING);
+                                }
+                                
+                                currentData.entities.get(r).iconPath = dest.getAbsolutePath();
+                                table.setValueAt(dest.getAbsolutePath(), r, 0);
+                            } catch (Exception ex) {
+                                JOptionPane.showMessageDialog(BuildDialog.this, "Error al cargar la imagen: " + ex.getMessage());
+                            }
+                        }
+                    }
+                }
+            }
+        });
+        
+        return p;
     }
 
     // ── Tab Redes de Ruta ─────────────────────────────────────────────────
-    private JPanel buildRutasTab() {
-        String[] cols = {"Red","Tipo","Desde","Hasta","Bi","Distancia/Tiempo","Vel."};
-        Object[][] data = {
-            {"RUTA_TRABAJADOR_1","Sobrepasar","N1","N2","Si","28.28","1"},
-            {"RUTA_TRABAJADOR_2","Sobrepasar","N1","N2","Si","29.31","1"},
-            {"RUTA_TRABAJADOR_3","Sobrepasar","N1","N2","Si","37.60","1"},
-            {"RUTA_MONTACARGAS", "Sobrepasar","N1","N2","Si","49.51","1"},
-            {"RUTA_MONTACARGAS", "Sobrepasar","N2","N3","Si","43.35","1"},
+    private JPanel buildRutTab() {
+        String[] cols = {"Nombre", "Tipo", "T/V", "Desde", "Hasta", "BI", "Distancia/Tiempo", "Factor Velocidad"};
+        Object[][] data = new Object[0][0]; // Vacío por ahora
+        
+        DefaultTableModel tmRut = new DefaultTableModel(data, cols) {
+            public boolean isCellEditable(int r, int c) { return false; }
         };
-        DefaultTableModel tm = new DefaultTableModel(data, cols) {
-            public boolean isCellEditable(int r, int c) { return c==5||c==6; }
-        };
-        return tablePanel(tm, "Redes de ruta para recursos. Edita Distancia y Factor de velocidad.",
-            new int[]{150,100,60,60,40,120,40});
+        return tablePanel(tmRut, "Configuración visual de rutas (solo lectura).", new int[]{150, 100, 130, 60, 60, 40, 110, 110});
     }
 
     // ── Tab Recursos ──────────────────────────────────────────────────────
     private JPanel buildResTab() {
-        String[] cols = {"Nombre","Unidades","Ruta","Home","Traslado (min)","Buscar"};
-        Object[][] data = {
-            {"TRABAJADOR_1","1","RUTA_TRABAJADOR_1","N1", params.t1Traslado, "Mas Cercano"},
-            {"TRABAJADOR_2","1","RUTA_TRABAJADOR_2","N1", params.t2Traslado, "Mas Cercano"},
-            {"TRABAJADOR_3","1","RUTA_TRABAJADOR_3","N1", params.t3Traslado, "Mas Cercano"},
-            {"MONTACARGAS", "1","RUTA_MONTACARGAS", "N1", params.mkTraslado1,"Mas Cercano"},
-        };
+        String[] cols = {"Nombre","Unidades","Estadisticas","Ruta Búsqueda", "Lógica de Movimiento"};
+        Object[][] data = new Object[0][0];
+        
+        if (currentData != null) {
+            data = new Object[currentData.resources.size()][5];
+            for (int i = 0; i < currentData.resources.size(); i++) {
+                ProModelData.ResDef r = currentData.resources.get(i);
+                data[i] = new Object[]{r.name, r.units, r.stats, r.searchPath, r.moveLogic.replace("\n", " | ")};
+            }
+        }
+        
         tmRes = new DefaultTableModel(data, cols) {
-            public boolean isCellEditable(int r, int c) { return c==4; }
+            public boolean isCellEditable(int r, int c) { return false; }
         };
         return tablePanel(tmRes, "Edita la columna 'Traslado (min)' para cambiar tiempos de transporte.",
             new int[]{130,70,160,60,110,110});
@@ -917,7 +992,7 @@ public class BuildDialog extends JDialog {
             {"BARRA_ACERO","CONVEYOR_1","1","0","INF", params.arriboFrecuencia},
         };
         tmArribo = new DefaultTableModel(data, cols) {
-            public boolean isCellEditable(int r, int c) { return c==5; }
+            public boolean isCellEditable(int r, int c) { return false; }
         };
         return tablePanel(tmArribo,
             "Edita 'Frecuencia (min)' para cambiar cada cuanto llegan las barras de acero.",
@@ -1055,7 +1130,7 @@ public class BuildDialog extends JDialog {
 
 <<<<<<< Updated upstream
         JButton btnCancel = btn("Cancelar", new Color(100,40,40), e -> dispose());
-        JButton btnSave   = btn("Guardar y Cerrar", new Color(40,120,60), e -> saveAndClose());
+        JButton btnSave   = btn("Cerrar", new Color(40,120,60), e -> saveAndClose());
         p.add(btnCancel); p.add(btnSave);
 =======
 >>>>>>> Stashed changes
@@ -1085,19 +1160,6 @@ public class BuildDialog extends JDialog {
                     case "embCap":  params.embCap=cap;  break;
                 }
             }
-            // Leer cambios de Recursos (traslados)
-            params.t1Traslado  = dbl(tmRes.getValueAt(0,4));
-            params.t2Traslado  = dbl(tmRes.getValueAt(1,4));
-            params.t3Traslado  = dbl(tmRes.getValueAt(2,4));
-            params.mkTraslado1 = dbl(tmRes.getValueAt(3,4));
-            // Leer cambios de Arribos
-            params.arriboFrecuencia = dbl(tmArribo.getValueAt(0,5));
-
-            saved = true;
-            dispose();
-        } catch (NumberFormatException ex) {
-            JOptionPane.showMessageDialog(this,
-                "Valor invalido: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
         }
 =======
         /*
@@ -1238,7 +1300,6 @@ public class BuildDialog extends JDialog {
         header.setFont(SimConstants.FONT_LABEL);
         header.setReorderingAllowed(false);
 
-        // Colores alternos y resaltado de columnas editables
         table.setDefaultRenderer(Object.class, new DefaultTableCellRenderer() {
             @Override
             public Component getTableCellRendererComponent(
@@ -1256,8 +1317,8 @@ public class BuildDialog extends JDialog {
 <<<<<<< Updated upstream
                 boolean editable = t.isCellEditable(r,c);
                 if (sel)         setBackground(SimConstants.BG_CARD);
-                else if (editable) setBackground(new Color(30,50,30));
-                else               setBackground(r%2==0?SimConstants.BG_PANEL:new Color(25,25,50));
+                else if (editable) setBackground(new Color(230,230,230));
+                else               setBackground(r%2==0?Color.WHITE:new Color(245,245,245));
                 setBorder(BorderFactory.createEmptyBorder(0,6,0,4));
 =======
 

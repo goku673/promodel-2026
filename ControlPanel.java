@@ -160,10 +160,10 @@ public class ControlPanel extends JPanel {
         JPanel p = new JPanel(new GridLayout(5, 1, 0, 5));
         p.setOpaque(false);
         p.setBorder(BorderFactory.createEmptyBorder(0, 10, 0, 10));
-        lblBarras    = counterLabel("Barras llegadas: 0");
-        lblPiezas    = counterLabel("Piezas finales:  0");
-        lblEnSistema = counterLabel("En sistema:      0");
-        lblEmbarque  = counterLabel("En Embarque:     0");
+        lblBarras    = counterLabel("Entidades Creadas: 0");
+        lblPiezas    = counterLabel("Ent. Salientes:    0");
+        lblEnSistema = counterLabel("En sistema:        0");
+        lblEmbarque  = counterLabel("Total Procesadas:  0");
         p.add(lblBarras); p.add(lblPiezas); p.add(lblEnSistema); p.add(lblEmbarque);
         return p;
     }

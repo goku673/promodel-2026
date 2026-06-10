@@ -29,17 +29,17 @@ public class MultiEngraneSimulator {
         try {
             UIManager.setLookAndFeel(UIManager.getCrossPlatformLookAndFeelClassName());
             // Personalizar colores globales de Swing
-            UIManager.put("Panel.background",          new java.awt.Color(20, 20, 45));
-            UIManager.put("Label.foreground",          new java.awt.Color(224,224,224));
-            UIManager.put("TabbedPane.background",     new java.awt.Color(20, 20, 45));
-            UIManager.put("TabbedPane.foreground",     new java.awt.Color(224,224,224));
-            UIManager.put("TabbedPane.selected",       new java.awt.Color(33, 69, 96));
-            UIManager.put("TabbedPane.contentAreaColor",new java.awt.Color(20,20,45));
-            UIManager.put("ScrollPane.background",     new java.awt.Color(20, 20, 45));
-            UIManager.put("ScrollBar.background",      new java.awt.Color(30, 30, 55));
-            UIManager.put("ScrollBar.thumb",           new java.awt.Color(60, 60, 100));
-            UIManager.put("OptionPane.background",     new java.awt.Color(22, 33, 62));
-            UIManager.put("OptionPane.messageForeground", new java.awt.Color(224,224,224));
+            UIManager.put("Panel.background",          new java.awt.Color(255, 255, 255));
+            UIManager.put("Label.foreground",          new java.awt.Color(0, 0, 0));
+            UIManager.put("TabbedPane.background",     new java.awt.Color(240, 240, 240));
+            UIManager.put("TabbedPane.foreground",     new java.awt.Color(0, 0, 0));
+            UIManager.put("TabbedPane.selected",       new java.awt.Color(200, 200, 200));
+            UIManager.put("TabbedPane.contentAreaColor",new java.awt.Color(255, 255, 255));
+            UIManager.put("ScrollPane.background",     new java.awt.Color(255, 255, 255));
+            UIManager.put("ScrollBar.background",      new java.awt.Color(240, 240, 240));
+            UIManager.put("ScrollBar.thumb",           new java.awt.Color(150, 150, 150));
+            UIManager.put("OptionPane.background",     new java.awt.Color(255, 255, 255));
+            UIManager.put("OptionPane.messageForeground", new java.awt.Color(0, 0, 0));
         } catch (Exception ignored) { /* continuar con L&F por defecto */ }
 
         // Lanzar GUI en el Event Dispatch Thread

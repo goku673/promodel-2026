@@ -4,12 +4,12 @@ public enum LType {
 
     public java.awt.Color color() {
         switch (this) {
-            case CONVEYOR:   return new java.awt.Color(55,71,79);
-            case ALMACEN:    return new java.awt.Color(230,160,0);
-            case MAQUINA:    return new java.awt.Color(40,100,180);
-            case INSPECCION: return new java.awt.Color(0,150,170);
-            case EMPAQUE:    return new java.awt.Color(200,80,50);
-            case EMBARQUE:   return new java.awt.Color(70,160,80);
+            case CONVEYOR:   return new java.awt.Color(220, 220, 220);
+            case ALMACEN:    return new java.awt.Color(200, 200, 200);
+            case MAQUINA:    return new java.awt.Color(150, 150, 150);
+            case INSPECCION: return new java.awt.Color(100, 100, 100);
+            case EMPAQUE:    return new java.awt.Color(50,  50,  50);
+            case EMBARQUE:   return new java.awt.Color(0,   0,   0);
             default:         return java.awt.Color.GRAY;
         }
     }

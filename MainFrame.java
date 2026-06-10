@@ -38,6 +38,7 @@ public class MainFrame extends JFrame {
 
     // Parámetros editables por el usuario
     SimParams params = new SimParams();
+    ProModelData currentData;
 
     // Componentes de simulación
     SimState state;
@@ -81,12 +82,17 @@ public class MainFrame extends JFrame {
     // Construcción de la interfaz
     // ─────────────────────────────────────────────────────────────────────
 
+    JPanel welcomePanel;
+    JPanel mainWrapper;
+
     private void buildUI() {
         setLayout(new BorderLayout(0, 0));
 
         add(buildHeader(), BorderLayout.NORTH);
 >>>>>>> Stashed changes
 
+        factoryPanel = new FactoryPanel();
+        statsPanel = new StatsPanel();
         controlPanel = new ControlPanel(this);
 <<<<<<< Updated upstream
         add(controlPanel,        BorderLayout.EAST);
@@ -483,14 +489,23 @@ public class MainFrame extends JFrame {
         JMenu mBuild = darkMenu("Construir");
 <<<<<<< Updated upstream
         JMenuItem miBuildMain = darkItem("Abrir editor del modelo...");
-        JMenuItem miLocEdit   = darkItem("Locaciones        Ctrl+L");
-        JMenuItem miEntEdit   = darkItem("Entidades         Ctrl+E");
-        JMenuItem miRutEdit   = darkItem("Redes de Ruta     Ctrl+N");
-        JMenuItem miResEdit   = darkItem("Recursos          Ctrl+R");
-        JMenuItem miProcEdit  = darkItem("Procesamiento     Ctrl+P");
-        JMenuItem miArrEdit   = darkItem("Arribos           Ctrl+I");
+        JMenuItem miGraphEdit = darkItem("Gráficas");
+        miGraphEdit.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_G, InputEvent.CTRL_DOWN_MASK));
+        JMenuItem miLocEdit   = darkItem("Locaciones");
+        miLocEdit.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_L, InputEvent.CTRL_DOWN_MASK));
+        JMenuItem miEntEdit   = darkItem("Entidades");
+        miEntEdit.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_E, InputEvent.CTRL_DOWN_MASK));
+        JMenuItem miRutEdit   = darkItem("Redes de Ruta");
+        miRutEdit.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_N, InputEvent.CTRL_DOWN_MASK));
+        JMenuItem miResEdit   = darkItem("Recursos");
+        miResEdit.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_R, InputEvent.CTRL_DOWN_MASK));
+        JMenuItem miProcEdit  = darkItem("Procesamiento");
+        miProcEdit.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_P, InputEvent.CTRL_DOWN_MASK));
+        JMenuItem miArrEdit   = darkItem("Arribos");
+        miArrEdit.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_I, InputEvent.CTRL_DOWN_MASK));
 
         miBuildMain.addActionListener(e -> showBuildDialog(0));
+        miGraphEdit.addActionListener(e -> new GraphicsDialog(this).setVisible(true));
         miLocEdit  .addActionListener(e -> showBuildDialog(0));
         miEntEdit  .addActionListener(e -> showBuildDialog(1));
         miRutEdit  .addActionListener(e -> showBuildDialog(2));
@@ -499,6 +514,7 @@ public class MainFrame extends JFrame {
         miArrEdit  .addActionListener(e -> showBuildDialog(5));
 
         mBuild.add(miBuildMain); mBuild.addSeparator();
+        mBuild.add(miGraphEdit); mBuild.addSeparator();
         mBuild.add(miLocEdit); mBuild.add(miEntEdit); mBuild.add(miRutEdit);
         mBuild.add(miResEdit); mBuild.add(miProcEdit); mBuild.add(miArrEdit);
 =======
@@ -553,12 +569,9 @@ public class MainFrame extends JFrame {
         JMenuItem miAbout = darkItem("Acerca de...");
         miAbout.addActionListener(e -> JOptionPane.showMessageDialog(this,
             "Promodel-Lite Simulator v1.0\n" +
-            "Simulación de Eventos Discretos (DES)\n" +
-            "Java Swing — Sin dependencias externas\n\n" +
-            "Proceso: BARRA → CONVEYOR_1 → ALMACEN_1 → CORTADORA\n" +
-            "         → TORNO → CONVEYOR_2 → FRESADORA → ALMACEN_2\n" +
-            "         → PINTURA → INSPECCION_1 → EMPAQUE → EMBARQUE",
-            "Acerca de Promodel-Lite Simulator",
+            "Simulador Genérico Dinámico por Modelos ProModel (.txt)\n" +
+            "Java Swing — Sin dependencias externas",
+            "Acerca de Promodel-Lite",
             JOptionPane.INFORMATION_MESSAGE));
 =======
 
@@ -738,12 +751,12 @@ public class MainFrame extends JFrame {
             String.format(
                 "Simulacion finalizada.%n%n" +
                 "  Tiempo simulado:    %.1f min (%.1f h)%n" +
-                "  Barras llegadas:    %d%n" +
-                "  Piezas finalizadas: %d%n%n" +
+                "  Entidades Creadas:    %d%n" +
+                "  Entidades Salientes: %d%n%n" +
                 "Deseas ver el reporte completo de resultados?",
                 state.clk, state.clk/60.0,
-                state.barrasLlegadas.get(),
-                state.piezasFinales.get()),
+                state.entidadesCreadas.get(),
+                state.entidadesSalientes.get()),
             "Simulacion Completada",
             JOptionPane.YES_NO_OPTION,
             JOptionPane.QUESTION_MESSAGE);
