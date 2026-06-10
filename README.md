@@ -28,7 +28,7 @@ El sistema puede trabajar con distintos modelos siempre que el archivo importado
 
 ## 🖼️ Vista general del programa
 
-![Captura de Pantalla](https://i.ibb.co/ksqg1cmz/promodel-plus.jpg)
+![Captura de Pantalla](https://i.ibb.co/TxsdHw8z/portada.jpg)
 
 ---
 
