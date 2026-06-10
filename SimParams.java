@@ -13,10 +13,16 @@ public class SimParams implements Cloneable {
     /** Semilla del generador aleatorio para reproducibilidad */
     public long   semilla  = 42L;
 
+<<<<<<< Updated upstream
+=======
     // Nuevos campos solicitados
     public String precisionReloj = "Minuto";
     public String replicas = "";
 
+    /** Modo "batch": desactiva repaints y sleep para máxima velocidad */
+    public boolean disableAnimation = false;
+
+>>>>>>> Stashed changes
     /**
      * Crea una copia profunda de los parámetros para uso en simulación.
      */

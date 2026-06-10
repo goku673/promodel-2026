@@ -103,3 +103,126 @@ git push origin dev
 ---
 
 _Desarrollado para la optimización de procesos industriales._
+
+```
+promodel-2026
+├─ BuildDialog.java
+├─ ChartsDialog.java
+├─ ControlPanel.java
+├─ ejecutar.bat
+├─ FactoryPanel.java
+├─ GraphicsDialog.java
+├─ LType.java
+├─ MainFrame.java
+├─ manifest.txt
+├─ MultiEngraneSimulator.jar
+├─ MultiEngraneSimulator.java
+├─ MultiEngraneSimulator.zip
+├─ ParamsDialog.java
+├─ patch_split.ps1
+├─ ProModelData.java
+├─ ProModelParser.java
+├─ public
+│  ├─ Almacen3_png.png
+│  ├─ Almacen4_png.png
+│  ├─ Almacen_png.png
+│  ├─ Auto_png.png
+│  ├─ Barrametal_png.png
+│  ├─ Caja_png.png
+│  ├─ Camioneta_png.png
+│  ├─ CentroTuning_png.png
+│  ├─ Cortadora_png.png
+│  ├─ Edificio_2_png.png
+│  ├─ Edificio_png.png
+│  ├─ Fila2_png.png
+│  ├─ Fila_png.png
+│  ├─ Horno2_png.png
+│  ├─ Horno_png.png
+│  ├─ InspeccionMesa_png.png
+│  ├─ Inspeccion_png.png
+│  ├─ Lavadora_png.png
+│  ├─ Montacarga_png.png
+│  ├─ Operador_png.png
+│  ├─ PiezaHorneada_png.png
+│  ├─ PiezaLimpia_png.png
+│  ├─ PiezaPintada_png.png
+│  ├─ Pieza_png.png
+│  ├─ Pintadora2_png.png
+│  ├─ Pintadora_png.png
+│  ├─ Tornillo_png.png
+│  ├─ Torno_png.png
+│  ├─ trabajadora_png.png
+│  └─ trabajador_png.png
+├─ README.md
+├─ Renderers.java
+├─ ResultsDialog.java
+├─ SimConstants.java
+├─ SimEngine.java
+├─ SimModel.java
+├─ SimParams.java
+├─ SimWorker.java
+├─ StatsPanel.java
+└─ test_modelo.txt
+
+```
+```
+promodel-2026
+├─ BuildDialog.java
+├─ ChartsDialog.java
+├─ ControlPanel.java
+├─ ejecutar.bat
+├─ FactoryPanel.java
+├─ GraphicsDialog.java
+├─ LType.java
+├─ MainFrame.java
+├─ manifest.txt
+├─ MultiEngraneSimulator.jar
+├─ MultiEngraneSimulator.java
+├─ MultiEngraneSimulator.zip
+├─ ParamsDialog.java
+├─ patch_split.ps1
+├─ ProModelData.java
+├─ ProModelParser.java
+├─ public
+│  ├─ Almacen3_png.png
+│  ├─ Almacen4_png.png
+│  ├─ Almacen_png.png
+│  ├─ Auto_png.png
+│  ├─ Barrametal_png.png
+│  ├─ Caja_png.png
+│  ├─ Camioneta_png.png
+│  ├─ CentroTuning_png.png
+│  ├─ Cortadora_png.png
+│  ├─ Edificio_2_png.png
+│  ├─ Edificio_png.png
+│  ├─ Fila2_png.png
+│  ├─ Fila_png.png
+│  ├─ Horno2_png.png
+│  ├─ Horno_png.png
+│  ├─ InspeccionMesa_png.png
+│  ├─ Inspeccion_png.png
+│  ├─ Lavadora_png.png
+│  ├─ Montacarga_png.png
+│  ├─ Operador_png.png
+│  ├─ PiezaHorneada_png.png
+│  ├─ PiezaLimpia_png.png
+│  ├─ PiezaPintada_png.png
+│  ├─ Pieza_png.png
+│  ├─ Pintadora2_png.png
+│  ├─ Pintadora_png.png
+│  ├─ Tornillo_png.png
+│  ├─ Torno_png.png
+│  ├─ trabajadora_png.png
+│  └─ trabajador_png.png
+├─ README.md
+├─ Renderers.java
+├─ ResultsDialog.java
+├─ SimConstants.java
+├─ SimEngine.java
+├─ SimParams.java
+├─ SimState.java
+├─ SimWorker.java
+├─ StatsPanel.java
+└─ test_modelo.txt
+
+```
