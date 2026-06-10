@@ -144,7 +144,7 @@ public class ResultsDialog extends JDialog {
                 cap,
                 df.format(loc.totalEntries),
                 df.format(loc.avgTimePerEntry(state.clk)),
-                df.format(loc.avgContents(state.clk)),
+                df.format(loc.avgContents(state.clk, state.clk)),
                 df.format(loc.maxCnt),
                 df.format(loc.cnt),
                 df.format(loc.utilLive(state.clk, state.clk))
@@ -191,11 +191,11 @@ public class ResultsDialog extends JDialog {
                 "1.00",
                 df.format(hrs),
                 df.format(res.workTime),
-                df.format(res.timesUsed),
-                df.format(res.avgTimePerUse()),
+                res.timesUsed,
+                df.format(res.avgTimePerUse(state.clk)),
                 df.format(res.timesUsed > 0 ? res.travelTime / res.timesUsed : 0),
                 "0.00", "0.00",
-                df.format(res.utilPct(state.clk))
+                df.format(res.utilPct(state.clk, state.clk))
             });
         }
 
@@ -210,7 +210,7 @@ public class ResultsDialog extends JDialog {
         java.util.List<Double> val = new ArrayList<>();
         for (Res res : state.res.values()) {
             lbl.add(res.name.replace("_", " "));
-            val.add(res.utilPct(state.clk));
+            val.add(res.utilPct(state.clk, state.clk));
         }
         String[] labels = lbl.toArray(new String[0]);
         double[] values = val.stream().mapToDouble(Double::doubleValue).toArray();

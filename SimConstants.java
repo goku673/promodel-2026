@@ -42,5 +42,5 @@ public class SimConstants {
     public static final Font FONT_LABEL  = new Font("Arial", Font.BOLD,  11);
     public static final Font FONT_SMALL  = new Font("Arial", Font.PLAIN, 10);
     public static final Font FONT_COUNT  = new Font("Arial", Font.BOLD,  13);
-    public static final Font FONT_MONO   = new Font("Monospaced", Font.BOLD, 12);
+    public static final Font FONT_MONO   = new Font("Arial", Font.BOLD, 12);
 }
